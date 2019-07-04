@@ -1,4 +1,3 @@
-/*
 use crate::game::block::Block;
 use find_folder;
 use piston_window;
@@ -57,7 +56,10 @@ impl Assets {
             piston_window::Flip::None,
             &self.texture_settings,
         )
-        .expect(&format!("can not load the texture: {}", name))
+        .expect(&format!(
+            "can not load the texture: {}",
+            name
+        ))
     }
 
     fn texture(&mut self, name: &str) -> rc::Rc<Texture> {
@@ -80,4 +82,3 @@ impl Assets {
         self.texture("bg-tile.png")
     }
 }
-*/
