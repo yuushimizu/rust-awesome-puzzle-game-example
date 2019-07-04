@@ -2,7 +2,7 @@ use array2d;
 
 pub type BlockNumber = u32;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Block {
     pub number: BlockNumber,
 }

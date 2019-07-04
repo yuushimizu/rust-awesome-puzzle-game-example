@@ -12,6 +12,8 @@ enum WindowSpace {}
 
 type WindowSize = euclid::TypedSize2D<f64, WindowSpace>;
 
+const PIXEL_SCALE: f64 = 2.0;
+
 fn main() {
     let window_size = WindowSize::new(480.0, 480.0);
     let mut window: piston_window::PistonWindow =
@@ -28,22 +30,39 @@ fn main() {
         texture_settings,
     );
     let mut scene = sprite::Scene::new();
-    let piece = game::Piece::standards()[2].clone();
+    let game = game::Game::new();
+    for position in euclid::TypedRect::new(BlockPosition::zero(), game.stage_size()).points() {
+        let texture = assets.background_tile_texture();
+        let mut sp = sprite::Sprite::from_texture(texture.clone());
+        let texture_size =
+            euclid::TypedSize2D::<u32, WindowSpace>::new(texture.get_width(), texture.get_height());
+        let sprite_position: euclid::TypedPoint2D<f64, WindowSpace> =
+            (position, texture_size).map(|(position, size)| {
+                euclid::Length::new(position.get() as f64 * size.get() as f64 * PIXEL_SCALE)
+            });
+        sp.set_position(sprite_position.x, sprite_position.y);
+        sp.set_scale(PIXEL_SCALE, PIXEL_SCALE);
+        scene.add_child(sp);
+    }
+    let mut pp = game::piece_producer::PieceProducer::new(game::piece::standards());
+    let piece = pp.next();
     for position in euclid::TypedRect::new(BlockPosition::zero(), piece.size()).points() {
-        if let Some(block) = &piece.blocks()[position] {
-            let scale = 2.0;
+        if let Some(block) = piece.blocks()[position] {
             let texture = assets.block_texture(block, BlockFace::Normal);
             let mut sp = sprite::Sprite::from_texture(texture.clone());
             let texture_size = euclid::TypedSize2D::<u32, WindowSpace>::new(
                 texture.get_width(),
                 texture.get_height(),
             );
+            println!("{:?}", sp.bounding_box());
             let sprite_position: euclid::TypedPoint2D<f64, WindowSpace> = (position, texture_size)
                 .map(|(position, size)| {
-                    euclid::Length::new(100.0 + position.get() as f64 * size.get() as f64 * scale)
+                    euclid::Length::new(
+                        100.0 + position.get() as f64 * size.get() as f64 * PIXEL_SCALE,
+                    )
                 });
             sp.set_position(sprite_position.x, sprite_position.y);
-            sp.set_scale(scale, scale);
+            sp.set_scale(PIXEL_SCALE, PIXEL_SCALE);
             scene.add_child(sp);
         }
     }

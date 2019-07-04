@@ -1,4 +1,4 @@
-use crate::game::block::{Block, BlockGrid, BlockGridSize, BlockNumber, BlockPosition};
+use super::block::{Block, BlockGrid, BlockGridSize, BlockNumber, BlockPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
@@ -27,20 +27,18 @@ fn piece(size: usize, number: usize, blocks: &[(usize, usize)]) -> Piece {
     Piece::new(grid)
 }
 
-impl Piece {
-    pub fn standards() -> Vec<Piece> {
-        [
-            (4, [(0, 1), (1, 1), (2, 1), (3, 1)]), // I
-            (2, [(0, 0), (1, 0), (0, 1), (1, 1)]), // O
-            (3, [(1, 0), (2, 0), (0, 1), (1, 1)]), // S
-            (3, [(0, 0), (1, 0), (1, 1), (2, 1)]), // Z
-            (3, [(0, 0), (0, 1), (1, 1), (2, 1)]), // J
-            (3, [(2, 0), (0, 1), (1, 1), (2, 1)]), // L
-            (3, [(1, 0), (0, 1), (1, 1), (2, 1)]), // T
-        ]
-        .iter()
-        .enumerate()
-        .map(|(number, (size, blocks))| piece(*size, number, blocks))
-        .collect()
-    }
+pub fn standards() -> Vec<Piece> {
+    [
+        (4, [(0, 1), (1, 1), (2, 1), (3, 1)]), // I
+        (2, [(0, 0), (1, 0), (0, 1), (1, 1)]), // O
+        (3, [(1, 0), (2, 0), (0, 1), (1, 1)]), // S
+        (3, [(0, 0), (1, 0), (1, 1), (2, 1)]), // Z
+        (3, [(0, 0), (0, 1), (1, 1), (2, 1)]), // J
+        (3, [(2, 0), (0, 1), (1, 1), (2, 1)]), // L
+        (3, [(1, 0), (0, 1), (1, 1), (2, 1)]), // T
+    ]
+    .iter()
+    .enumerate()
+    .map(|(number, (size, blocks))| piece(*size, number, blocks))
+    .collect()
 }
