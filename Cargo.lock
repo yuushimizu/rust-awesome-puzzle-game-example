@@ -34,7 +34,7 @@ dependencies = [
 [[package]]
 name = "array2d"
 version = "0.1.0"
-source = "git+https://github.com/yuushimizu/array2d-rs#aa75fb471de158f43608a972dba992f7e50d5bdb"
+source = "git+https://github.com/yuushimizu/array2d-rs#13d68f31ea3f9cbe7bb77ce4668de101fb617438"
 dependencies = [
  "euclid 0.19.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid-ext 0.1.0 (git+https://github.com/yuushimizu/euclid-ext)",
@@ -1044,6 +1044,7 @@ version = "0.1.0"
 dependencies = [
  "array2d 0.1.0 (git+https://github.com/yuushimizu/array2d-rs)",
  "euclid 0.19.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "euclid-ext 0.1.0 (git+https://github.com/yuushimizu/euclid-ext)",
  "find_folder 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston2d-sprite 0.55.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston_window 0.99.0 (registry+https://github.com/rust-lang/crates.io-index)",

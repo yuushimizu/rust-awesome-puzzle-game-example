@@ -3,9 +3,10 @@ mod game;
 
 use assets::{Assets, BlockFace};
 use euclid;
+use euclid_ext::{Map2D, Points};
+use game::BlockPosition;
 use piston_window;
-use game::Block;
-use sprite;
+use piston_window::ImageSize;
 
 enum WindowSpace {}
 
@@ -27,14 +28,28 @@ fn main() {
         texture_settings,
     );
     let mut scene = sprite::Scene::new();
-    let mut sp =
-        sprite::Sprite::from_texture(assets.block_texture(Block::new(0), BlockFace::Happy));
-    sp.set_position(100.0, 100.0);
-    sp.set_scale(4.0, 4.0);
-    scene.add_child(sp);
+    let piece = game::Piece::standards()[2].clone();
+    for position in euclid::TypedRect::new(BlockPosition::zero(), piece.size()).points() {
+        if let Some(block) = &piece.blocks()[position] {
+            let scale = 2.0;
+            let texture = assets.block_texture(block, BlockFace::Normal);
+            let mut sp = sprite::Sprite::from_texture(texture.clone());
+            let texture_size = euclid::TypedSize2D::<u32, WindowSpace>::new(
+                texture.get_width(),
+                texture.get_height(),
+            );
+            let sprite_position: euclid::TypedPoint2D<f64, WindowSpace> = (position, texture_size)
+                .map(|(position, size)| {
+                    euclid::Length::new(100.0 + position.get() as f64 * size.get() as f64 * scale)
+                });
+            sp.set_position(sprite_position.x, sprite_position.y);
+            sp.set_scale(scale, scale);
+            scene.add_child(sp);
+        }
+    }
     while let Some(event) = window.next() {
         window.draw_2d(&event, |c, g, _| {
-            piston_window::clear([1.0, 1.0, 1.0, 1.0], g);
+            piston_window::clear([0.0, 0.0, 0.0, 1.0], g);
             scene.draw(c.transform, g);
         });
     }

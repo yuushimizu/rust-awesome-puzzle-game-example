@@ -70,12 +70,12 @@ impl Assets {
         }
     }
 
-    fn block_path(&self, block: Block, face: BlockFace) -> path::PathBuf {
+    fn block_path(&self, block: &Block, face: BlockFace) -> path::PathBuf {
         self.path
             .join(format!("block-{}-{}.png", block.number, face.name()))
     }
 
-    pub fn block_texture(&mut self, block: Block, face: BlockFace) -> rc::Rc<Texture> {
+    pub fn block_texture(&mut self, block: &Block, face: BlockFace) -> rc::Rc<Texture> {
         self.texture(self.block_path(block, face))
     }
 }

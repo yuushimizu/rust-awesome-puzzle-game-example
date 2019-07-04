@@ -1,12 +1,14 @@
 use array2d;
 
+pub type BlockNumber = u32;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Block {
-    pub number: u32,
+    pub number: BlockNumber,
 }
 
 impl Block {
-    pub fn new(number: u32) -> Self {
+    pub fn new(number: BlockNumber) -> Self {
         Self { number }
     }
 }
@@ -14,6 +16,8 @@ impl Block {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum BlockSpace {}
 
-pub type BlockGrid = array2d::Array2D<Block, BlockSpace>;
+pub type BlockGrid = array2d::Array2D<Option<Block>, BlockSpace>;
+
+pub type BlockGridSize = array2d::Size<BlockSpace>;
 
 pub type BlockPosition = array2d::Index<BlockSpace>;
