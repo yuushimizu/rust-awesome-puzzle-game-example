@@ -70,14 +70,11 @@ fn main() {
         },
         texture_settings,
     );
-    let game = game::Game::new();
+    let mut game = game::Game::new();
     let mut scene = Scene::new(&mut assets, &game);
-    let piece = game::piece_producer::PieceProducer::new(game::piece::standards())
-        .next()
-        .clone();
     let stage = scene.stage_mut();
-    for index in euclid::TypedRect::new(BlockPosition::zero(), piece.size()).points() {
-        if let Some(block) = piece.blocks()[index] {
+    for index in euclid::TypedRect::new(BlockPosition::zero(), game.piece().size()).points() {
+        if let Some(block) = game.piece().blocks()[index] {
             let texture = assets.block_texture(block, BlockFace::Normal);
             let mut sprite = sprite::Sprite::from_texture(texture.clone());
             let position = tile_position(&index);
@@ -94,7 +91,7 @@ fn main() {
                 });
             }
             Event::Loop(Loop::Update(arg)) => {
-                println!("{}", arg.dt);
+                game.update(arg.dt);
             }
             _ => {}
         }
