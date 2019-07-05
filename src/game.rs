@@ -60,15 +60,11 @@ impl Game {
         self.stage.size()
     }
 
-    pub fn block(&self, index: BlockIndex) -> Option<Block> {
-        self.stage.get(index).and_then(|x| *x)
-    }
-
     fn fix_piece(&mut self) -> Vec<Event> {
         let mut events = vec![];
         let offset = self.piece_state.position;
         for index in euclid::TypedRect::from_size(self.piece_state.piece.size()).points() {
-            if let Some(block) = self.piece_state.piece.blocks()[index] {
+            if let Some(block) = self.piece_state.piece.block(index) {
                 let position: BlockIndexOffset =
                     (offset, index.cast::<isize>()).map(|(o, i)| o + i);
                 debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
@@ -90,7 +86,7 @@ impl Game {
     fn drop_once(&mut self) -> Vec<Event> {
         let offset = self.piece_state.position;
         for index in euclid::TypedRect::from_size(self.piece_state.piece.size()).points() {
-            if self.piece_state.piece.blocks()[index].is_none() {
+            if self.piece_state.piece.block(index).is_none() {
                 continue;
             }
             let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);

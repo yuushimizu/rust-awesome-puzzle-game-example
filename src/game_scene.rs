@@ -65,7 +65,7 @@ impl GameSceneSprite {
     fn change_piece(&mut self, piece: &Piece, context: &mut SceneContext) {
         self.piece_sprite(context).remove_all_children();
         for index in euclid::TypedRect::from_size(piece.size()).points() {
-            if let Some(block) = piece.blocks()[index] {
+            if let Some(block) = piece.block(index) {
                 sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
                     .moved_to(index.to_pixel_space())
                     .add_to(self.piece_sprite(context));

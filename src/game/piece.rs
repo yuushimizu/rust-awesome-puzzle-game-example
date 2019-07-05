@@ -14,8 +14,8 @@ impl Piece {
         self.blocks.size()
     }
 
-    pub fn blocks(&self) -> &BlockGrid {
-        &self.blocks
+    pub fn block(&self, index: BlockIndex) -> Option<Block> {
+        self.blocks.get(index).and_then(|x| *x)
     }
 }
 
