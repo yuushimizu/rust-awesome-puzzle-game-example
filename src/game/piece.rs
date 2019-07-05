@@ -1,4 +1,4 @@
-use super::block::{Block, BlockGrid, BlockGridSize, BlockNumber, BlockPosition};
+use super::block::{Block, BlockGrid, BlockGridSize, BlockNumber, BlockIndex};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
@@ -22,7 +22,7 @@ impl Piece {
 fn piece(size: usize, number: usize, blocks: &[(usize, usize)]) -> Piece {
     let mut grid = BlockGrid::new(BlockGridSize::new(size, size), None);
     for (x, y) in blocks {
-        grid[BlockPosition::new(*x, *y)] = Some(Block::new(number as BlockNumber))
+        grid[BlockIndex::new(*x, *y)] = Some(Block::new(number as BlockNumber))
     }
     Piece::new(grid)
 }

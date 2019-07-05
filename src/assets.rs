@@ -40,17 +40,16 @@ impl Assets {
         mut texture_context: TextureContext,
         texture_settings: piston_window::TextureSettings,
     ) -> Self {
-        let empty_texture = rc::Rc::new(
-            Texture::empty(&mut texture_context).expect("can not create an empty texture"),
-        );
         Self {
             path: find_folder::Search::ParentsThenKids(3, 3)
                 .for_folder("assets")
                 .expect("the assets directory was not found"),
+            empty_texture: rc::Rc::new(
+                Texture::empty(&mut texture_context).expect("can not create an empty texture"),
+            ),
             texture_context,
             texture_settings,
             textures: collections::HashMap::new(),
-            empty_texture,
         }
     }
 

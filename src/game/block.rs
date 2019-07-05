@@ -20,4 +20,4 @@ pub type BlockGrid = array2d::Array2D<Option<Block>, BlockSpace>;
 
 pub type BlockGridSize = array2d::Size<BlockSpace>;
 
-pub type BlockPosition = array2d::Index<BlockSpace>;
+pub type BlockIndex = array2d::Index<BlockSpace>;

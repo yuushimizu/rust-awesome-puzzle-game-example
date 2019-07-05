@@ -4,7 +4,7 @@ mod game;
 use assets::{Assets, BlockFace};
 use euclid;
 use euclid_ext::{Map2D, Points};
-use game::{BlockPosition, Game};
+use game::{BlockIndex, BlockSpace, Game};
 use piston_window::*;
 use uuid;
 
@@ -24,7 +24,13 @@ const TILE_SIZE: f64 = 8.0;
 
 enum PixelSpace {}
 
-fn tile_position(index: &BlockPosition) -> euclid::TypedPoint2D<f64, PixelSpace> {
+fn tile_position(
+    index: euclid::TypedPoint2D<isize, BlockSpace>,
+) -> euclid::TypedPoint2D<f64, PixelSpace> {
+    index.map(|n| euclid::Length::new(n.get() as f64 * TILE_SIZE))
+}
+
+fn block_position(index: BlockIndex) -> euclid::TypedPoint2D<f64, PixelSpace> {
     index.map(|n| euclid::Length::new(n.get() as f64 * TILE_SIZE))
 }
 
@@ -41,10 +47,10 @@ impl Scene {
         root.set_scale(PIXEL_SCALE, PIXEL_SCALE);
         let mut stage = empty_sprite(assets);
         stage.set_position(100.0, 50.0);
-        for index in euclid::TypedRect::new(BlockPosition::zero(), game.stage_size()).points() {
+        for index in euclid::TypedRect::new(BlockIndex::zero(), game.stage_size()).points() {
             let texture = assets.background_tile_texture();
             let mut tile = Sprite::from_texture(texture.clone());
-            let position = tile_position(&index);
+            let position = block_position(index);
             tile.set_position(position.x, position.y);
             stage.add_child(tile);
         }
@@ -91,11 +97,16 @@ fn main() {
     let mut game = game::Game::new();
     let mut scene = Scene::new(&mut assets, &game);
     let piece = scene.piece_mut();
-    for index in euclid::TypedRect::new(BlockPosition::zero(), game.piece().size()).points() {
+    let piece_position = tile_position(game.piece_position());
+    piece.set_position(piece_position.x, piece_position.y);
+    for index in euclid::TypedRect::new(BlockIndex::zero(), game.piece().size()).points() {
+        if (game.piece_position().y + index.y as isize) < 0 {
+            continue;
+        }
         if let Some(block) = game.piece().blocks()[index] {
             let texture = assets.block_texture(block, BlockFace::Normal);
             let mut sprite = sprite::Sprite::from_texture(texture.clone());
-            let position = tile_position(&index);
+            let position = block_position(index);
             sprite.set_position(position.x, position.y);
             piece.add_child(sprite);
         }
