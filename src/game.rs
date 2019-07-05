@@ -121,6 +121,7 @@ impl Game {
             Event::RemoveBlocks(removed_blocks)
         };
         let mut events = vec![remove_lines()];
+        let mut moves = vec![];
         let mut line_boundaries = removed_line_indices;
         line_boundaries.push(self.stage_size().height);
         for (removed, range) in line_boundaries
@@ -133,15 +134,12 @@ impl Game {
             {
                 if let Some(block) = self.stage[index] {
                     let destination = BlockIndex::new(index.x, index.y - removed - 1);
-                    events.push(Event::MoveBlock {
-                        block,
-                        source: index,
-                        destination,
-                    });
+                    moves.push((block, index, destination));
                     self.stage[destination] = std::mem::replace(&mut self.stage[index], None);
                 }
             }
         }
+        events.push(Event::MoveBlocks(moves));
         events
     }
 
