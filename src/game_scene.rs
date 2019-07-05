@@ -69,14 +69,15 @@ impl Sprites {
         root_sprite.set_scale(SCALE, SCALE);
         let mut stage_sprite = context
             .empty_sprite()
-            .moved_to(PixelPosition::new(TILE_SIZE * 3.0, 0.0));
+            .moved_to(PixelPosition::new(TILE_SIZE * 4.0, 0.0));
         put_background_tile_sprites(&mut stage_sprite, stage_size, context);
         let piece_sprite_id = stage_sprite.add_child(context.empty_sprite());
         let stage_sprite_id = root_sprite.add_child(stage_sprite);
         let mut next_pieces_sprite = context.empty_sprite().moved_to(PixelPosition::new(
-            TILE_SIZE * (stage_size.width as f64 + 4.5),
+            TILE_SIZE * (stage_size.width as f64 + 5.5),
             TILE_SIZE * 1.0,
         ));
+        next_pieces_sprite.set_scale(0.75, 0.75);
         put_background_tile_sprites(
             &mut next_pieces_sprite,
             BlockGridSize::new(6, 6 * 3),
