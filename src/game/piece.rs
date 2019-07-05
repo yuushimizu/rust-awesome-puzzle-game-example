@@ -1,38 +1,34 @@
-use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
-use euclid;
+use super::block::{Block, BlockGridSize, BlockIndex};
 use std::iter;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
-    blocks: BlockGrid,
+    size: BlockGridSize,
+    block: Block,
+    indices: Vec<BlockIndex>,
 }
 
 impl Piece {
-    pub fn new(blocks: BlockGrid) -> Self {
-        Self { blocks }
-    }
-
     pub fn size(&self) -> BlockGridSize {
-        self.blocks.size()
-    }
-
-    pub fn block(&self, index: BlockIndex) -> Option<Block> {
-        self.blocks.get(index).and_then(|x| *x)
+        self.size
     }
 
     pub fn blocks<'a>(&'a self) -> impl iter::Iterator<Item = (BlockIndex, Block)> + 'a {
-        use euclid_ext::Points;
-        euclid::TypedRect::from_size(self.size())
-            .points()
-            .filter_map(move |index| self.block(index).map(|block| (index, block)))
+        (&self.indices)
+            .iter()
+            .map(move |index| (*index, self.block))
     }
 
     fn transform(&self, mut transform: impl FnMut(BlockIndex) -> BlockIndex) -> Self {
-        let mut blocks = BlockGrid::new(self.size(), None);
-        for (index, block) in self.blocks() {
-            blocks[transform(index)] = Some(block);
+        Piece {
+            indices: self
+                .indices
+                .iter()
+                .map(|index| transform(*index))
+                .collect::<Vec<_>>(),
+            size: self.size,
+            block: self.block,
         }
-        Self::new(blocks)
     }
 
     pub fn rotate_left(&self) -> Self {
@@ -42,14 +38,6 @@ impl Piece {
     pub fn rotate_right(&self) -> Self {
         self.transform(|index| BlockIndex::new(self.size().width - 1 - index.y, index.x))
     }
-}
-
-fn piece(size: usize, number: usize, blocks: &[(usize, usize)]) -> Piece {
-    let mut grid = BlockGrid::new(BlockGridSize::new(size, size), None);
-    for (x, y) in blocks {
-        grid[BlockIndex::new(*x, *y)] = Some(Block::new(number as BlockNumber))
-    }
-    Piece::new(grid)
 }
 
 pub fn standards() -> Vec<Piece> {
@@ -64,6 +52,13 @@ pub fn standards() -> Vec<Piece> {
     ]
     .iter()
     .enumerate()
-    .map(|(number, (size, blocks))| piece(*size, number, blocks))
+    .map(|(number, (size, indices))| Piece {
+        size: BlockGridSize::new(*size, *size),
+        block: Block::new(number as u32),
+        indices: indices
+            .iter()
+            .map(|(x, y)| BlockIndex::new(*x, *y))
+            .collect::<Vec<_>>(),
+    })
     .collect()
 }
