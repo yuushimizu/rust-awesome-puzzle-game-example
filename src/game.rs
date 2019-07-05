@@ -34,7 +34,7 @@ impl PieceState {
         Self::new(piece, position)
     }
 
-    fn piece_blocks<'a>(&'a self) -> impl iter::Iterator<Item = (BlockIndexOffset, Block)> + 'a {
+    fn blocks<'a>(&'a self) -> impl iter::Iterator<Item = (BlockIndexOffset, Block)> + 'a {
         use euclid_ext::Map2D;
         self.piece.blocks().map(move |(index, block)| {
             (
@@ -72,18 +72,25 @@ impl Game {
 
     fn can_put_to(&self, index: BlockIndexOffset) -> bool {
         index.x >= 0
-            && (index.y < 0 || {
-                let index = index.cast::<usize>();
-                index.x < self.stage_size().width
-                    && index.y < self.stage_size().height
-                    && self.stage[index].is_none()
-            })
+            && (index.x as usize) < self.stage_size().width
+            && (index.y < 0
+                || ((index.y as usize) < self.stage_size().height
+                    && self.stage[index.cast::<usize>()].is_none()))
+    }
+
+    fn can_transform_piece(
+        &self,
+        mut transform: impl FnMut(BlockIndexOffset) -> BlockIndexOffset,
+    ) -> bool {
+        self.piece_state
+            .blocks()
+            .map(move |(index, _)| transform(index))
+            .all(|index| self.can_put_to(index))
     }
 
     fn fix_piece(&mut self) -> Vec<Event> {
         let mut events = vec![];
-        for (index, block) in self.piece_state.piece_blocks() {
-            debug_assert!(self.can_put_to(index));
+        for (index, block) in self.piece_state.blocks() {
             if index.y >= 0 {
                 let index = index.cast::<usize>();
                 self.stage[index] = Some(block);
@@ -98,16 +105,12 @@ impl Game {
     }
 
     fn drop_once(&mut self) -> bool {
-        if self
-            .piece_state
-            .piece_blocks()
-            .map(|(index, _)| index + euclid::TypedVector2D::new(0, 1))
-            .any(|bottom| !self.can_put_to(bottom))
-        {
-            return false;
+        if self.can_transform_piece(|index| index + euclid::TypedVector2D::new(0, 1)) {
+            self.piece_state.position.y += 1;
+            true
+        } else {
+            false
         }
-        self.piece_state.position.y += 1;
-        true
     }
 
     pub fn initial_events(&self) -> Vec<Event> {
@@ -128,11 +131,7 @@ impl Game {
     }
 
     fn can_move(&self, offset: isize) -> bool {
-        !self
-            .piece_state
-            .piece_blocks()
-            .map(|(index, _)| BlockIndexOffset::new(index.x + offset, index.y))
-            .any(|index| !self.can_put_to(index))
+        self.can_transform_piece(|index| BlockIndexOffset::new(index.x + offset, index.y))
     }
 
     fn try_move(&mut self, offset: isize) -> Vec<Event> {
@@ -165,11 +164,21 @@ impl Game {
         self.fix_piece()
     }
 
+    fn try_change_piece(&mut self, new_piece: Piece) -> Vec<Event> {
+        let new_state = PieceState::new(new_piece, self.piece_state.position);
+        if new_state.blocks().all(|(index, _)| self.can_put_to(index)) {
+            self.piece_state = new_state;
+            vec![Event::ChangePiece(&self.piece_state.piece)]
+        } else {
+            vec![]
+        }
+    }
+
     pub fn rotate_piece_right(&mut self) -> Vec<Event> {
-        vec![]
+        self.try_change_piece(self.piece_state.piece.rotate_right())
     }
 
     pub fn rotate_piece_left(&mut self) -> Vec<Event> {
-        vec![]
+        self.try_change_piece(self.piece_state.piece.rotate_left())
     }
 }

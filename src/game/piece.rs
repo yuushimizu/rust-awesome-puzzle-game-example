@@ -26,6 +26,22 @@ impl Piece {
             .points()
             .filter_map(move |index| self.block(index).map(|block| (index, block)))
     }
+
+    fn transform(&self, mut transform: impl FnMut(BlockIndex) -> BlockIndex) -> Self {
+        let mut blocks = BlockGrid::new(self.size(), None);
+        for (index, block) in self.blocks() {
+            blocks[transform(index)] = Some(block);
+        }
+        Self::new(blocks)
+    }
+
+    pub fn rotate_left(&self) -> Self {
+        self.transform(|index| BlockIndex::new(index.y, self.size().height - 1 - index.x))
+    }
+
+    pub fn rotate_right(&self) -> Self {
+        self.transform(|index| BlockIndex::new(self.size().width - 1 - index.y, index.x))
+    }
 }
 
 fn piece(size: usize, number: usize, blocks: &[(usize, usize)]) -> Piece {
