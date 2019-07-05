@@ -16,7 +16,7 @@ impl Piece {
     pub fn blocks<'a>(&'a self) -> impl iter::Iterator<Item = (BlockIndex, Block)> + 'a {
         (&self.indices)
             .iter()
-            .map(move |index| (*index, self.block))
+            .map(move |&index| (index, self.block))
     }
 
     fn transform(&self, mut transform: impl FnMut(BlockIndex) -> BlockIndex) -> Self {
@@ -52,12 +52,12 @@ pub fn standards() -> Vec<Piece> {
     ]
     .iter()
     .enumerate()
-    .map(|(number, (size, indices))| Piece {
-        size: BlockGridSize::new(*size, *size),
+    .map(|(number, &(size, indices))| Piece {
+        size: BlockGridSize::new(size, size),
         block: Block::new(number as u32),
         indices: indices
             .iter()
-            .map(|(x, y)| BlockIndex::new(*x, *y))
+            .map(|&(x, y)| BlockIndex::new(x, y))
             .collect::<Vec<_>>(),
     })
     .collect()

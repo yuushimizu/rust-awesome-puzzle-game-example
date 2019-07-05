@@ -103,12 +103,12 @@ impl Game {
     fn remove_filled_lines(&mut self) -> Vec<Event> {
         let stage_size = self.stage_size();
         let removed_line_indices = (0..stage_size.height)
-            .filter(|y| self.is_filled_line(*y))
+            .filter(|&y| self.is_filled_line(y))
             .collect::<Vec<_>>();
         let mut events = vec![];
         for index in (&removed_line_indices)
             .iter()
-            .flat_map(|y| (0..stage_size.width).map(move |x| BlockIndex::new(x, *y)))
+            .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
         {
             events.push(Event::RemoveBlock(self.stage[index].unwrap(), index));
             self.stage[index] = None;
@@ -138,14 +138,15 @@ impl Game {
     }
 
     fn fix_piece(&mut self) -> Vec<Event> {
-        let mut events = vec![];
+        let mut blocks = vec![];
         for (index, block) in self.piece_state.blocks() {
             if (index.y as usize) < self.stage_size().height {
                 let index = index.cast::<usize>();
                 self.stage[index] = Some(block);
-                events.push(Event::SetBlock(block, index));
+                blocks.push((block, index));
             }
         }
+        let mut events = vec![Event::PutBlocks(blocks)];
         events.append(&mut self.remove_filled_lines());
         self.piece_state =
             PieceState::with_initial_position(self.piece_producer.next(), self.stage_size());

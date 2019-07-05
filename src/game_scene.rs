@@ -88,15 +88,19 @@ impl GameSceneSprite {
         );
     }
 
-    fn set_block(&mut self, block: Block, index: BlockIndex, context: &mut SceneContext) {
-        if let Some(old_id) = self.block_ids[index] {
-            self.stage_sprite(context).remove_child(old_id);
-        }
-        self.block_ids[index] = Some(
-            sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Normal))
+    fn put_blocks(&mut self, blocks: &[(Block, BlockIndex)], context: &mut SceneContext) {
+        for &(block, index) in blocks {
+            if let Some(old_id) = self.block_ids[index] {
+                self.stage_sprite(context).remove_child(old_id);
+            }
+            self.block_ids[index] = Some(
+                sprite::Sprite::from_texture(
+                    context.assets.block_texture(block, BlockFace::Normal),
+                )
                 .moved_to(index.to_pixel_space(self.stage_size))
                 .add_to(self.stage_sprite(context)),
-        );
+            );
+        }
     }
 
     fn remove_block(&mut self, block: Block, index: BlockIndex, context: &mut SceneContext) {
@@ -120,30 +124,34 @@ impl GameSceneSprite {
         self.block_ids[destination] = Some(id);
     }
 
+    fn apply_event(&mut self, event: Event, context: &mut SceneContext) {
+        use Event::*;
+        match event {
+            ChangePiece(piece) => {
+                self.change_piece(piece, context);
+            }
+            MovePiece(piece, position) => {
+                self.move_piece(piece, position, context);
+            }
+            PutBlocks(blocks) => {
+                self.put_blocks(&blocks, context);
+            }
+            RemoveBlock(block, index) => {
+                self.remove_block(block, index, context);
+            }
+            MoveBlock {
+                block,
+                source,
+                destination,
+            } => {
+                self.move_block(block, source, destination, context);
+            }
+        }
+    }
+
     fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {
         for event in events {
-            use Event::*;
-            match event {
-                ChangePiece(piece) => {
-                    self.change_piece(piece, context);
-                }
-                MovePiece(piece, position) => {
-                    self.move_piece(piece, position, context);
-                }
-                SetBlock(block, index) => {
-                    self.set_block(block, index, context);
-                }
-                RemoveBlock(block, index) => {
-                    self.remove_block(block, index, context);
-                }
-                MoveBlock {
-                    block,
-                    source,
-                    destination,
-                } => {
-                    self.move_block(block, source, destination, context);
-                }
-            }
+            self.apply_event(event, context);
         }
     }
 }
