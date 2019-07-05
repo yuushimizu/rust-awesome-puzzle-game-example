@@ -1,4 +1,6 @@
 use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
+use euclid;
+use std::iter;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
@@ -16,6 +18,32 @@ impl Piece {
 
     pub fn block(&self, index: BlockIndex) -> Option<Block> {
         self.blocks.get(index).and_then(|x| *x)
+    }
+}
+
+pub struct PieceBlocks<'a, I: iter::Iterator<Item = BlockIndex>> {
+    pub piece: &'a Piece,
+    indices: I,
+}
+
+impl<'a, I: iter::Iterator<Item = BlockIndex>> PieceBlocks<'a, I> {
+    pub fn next(&mut self) -> Option<(BlockIndex, Block)> {
+        while let Some(index) = self.indices.next() {
+            if let Some(block) = self.piece.block(index) {
+                return Some((index, block));
+            }
+        }
+        None
+    }
+}
+
+impl Piece {
+    pub fn blocks(&self) -> PieceBlocks<impl iter::Iterator<Item = BlockIndex>> {
+        use euclid_ext::Points;
+        PieceBlocks {
+            indices: euclid::TypedRect::from_size(self.size()).points(),
+            piece: self,
+        }
     }
 }
 

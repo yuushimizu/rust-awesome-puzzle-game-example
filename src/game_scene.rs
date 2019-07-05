@@ -3,7 +3,6 @@ use crate::game::{Block, BlockIndex, BlockIndexOffset, BlockSpace, Event, Game, 
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
 use array2d;
-use euclid_ext::{Map2D, Points};
 use uuid;
 
 const TILE_SIZE: f64 = 8.0;
@@ -18,6 +17,7 @@ impl ToPixelSpace for BlockIndexOffset {
     type Output = PixelPosition;
 
     fn to_pixel_space(self) -> PixelPosition {
+        use euclid_ext::Map2D;
         self.map(|n| euclid::Length::new(n.get() as f64) * TILE_SIZE)
     }
 }
@@ -42,6 +42,7 @@ impl GameSceneSprite {
             TILE_SIZE / 2.0 + TILE_SIZE * 5.0,
             TILE_SIZE / 2.0,
         ));
+        use euclid_ext::Points;
         for index in euclid::TypedRect::from_size(game.stage_size()).points() {
             Sprite::from_texture(context.assets.background_tile_texture())
                 .moved_to(index.to_pixel_space())
@@ -64,12 +65,11 @@ impl GameSceneSprite {
 
     fn change_piece(&mut self, piece: &Piece, context: &mut SceneContext) {
         self.piece_sprite(context).remove_all_children();
-        for index in euclid::TypedRect::from_size(piece.size()).points() {
-            if let Some(block) = piece.block(index) {
-                sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
-                    .moved_to(index.to_pixel_space())
-                    .add_to(self.piece_sprite(context));
-            }
+        let mut blocks = piece.blocks();
+        while let Some((index, block)) = blocks.next() {
+            sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
+                .moved_to(index.to_pixel_space())
+                .add_to(self.piece_sprite(context));
         }
     }
 
