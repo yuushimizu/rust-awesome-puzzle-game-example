@@ -55,14 +55,17 @@ impl Game {
     }
 
     pub fn initial_events(&self) -> Vec<Event> {
-        vec![Event::ChangePiece(&self.piece_state)]
+        vec![
+            Event::ChangePiece(&self.piece_state.piece),
+            Event::MovePiece(self.piece_state.position),
+        ]
     }
 
     pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
             self.drop();
-            vec![Event::ChangePiece(&self.piece_state)]
+            vec![Event::MovePiece(self.piece_state.position)]
         } else {
             self.wait -= delta;
             vec![]

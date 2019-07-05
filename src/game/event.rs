@@ -1,5 +1,6 @@
-use super::piece::PieceState;
+use super::piece::{Piece, PiecePosition};
 
 pub enum Event<'a> {
-    ChangePiece(&'a PieceState),
+    ChangePiece(&'a Piece),
+    MovePiece(PiecePosition),
 }
