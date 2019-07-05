@@ -11,6 +11,8 @@ use uuid;
 
 const TILE_SIZE: f64 = 8.0;
 
+const SCALE: f64 = 2.0;
+
 trait ToPixelSpace {
     type Output;
 
@@ -22,8 +24,8 @@ impl ToPixelSpace for BlockIndexOffset {
 
     fn to_pixel_space(self, grid_size: BlockGridSize) -> PixelPosition {
         PixelPosition::new(
-            self.x as f64 * TILE_SIZE,
-            ((grid_size.height as isize) - 1 - self.y) as f64 * TILE_SIZE,
+            TILE_SIZE / 2.0 + self.x as f64 * TILE_SIZE,
+            TILE_SIZE / 2.0 + ((grid_size.height as isize) - 1 - self.y) as f64 * TILE_SIZE,
         )
     }
 }
@@ -51,10 +53,10 @@ struct GameSceneSprite {
 
 impl GameSceneSprite {
     fn new(stage_size: BlockGridSize, context: &mut SceneContext) -> Self {
-        let mut stage = context.empty_sprite().moved_to(PixelPosition::new(
-            TILE_SIZE / 2.0 + TILE_SIZE * 5.0,
-            TILE_SIZE / 2.0,
-        ));
+        let mut stage = context
+            .empty_sprite()
+            .moved_to(PixelPosition::new(TILE_SIZE * 10.0, 0.0));
+        stage.set_scale(SCALE, SCALE);
         use euclid_ext::Points;
         for index in euclid::TypedRect::from_size(stage_size).points() {
             Sprite::from_texture(context.assets.background_tile_texture())
@@ -132,7 +134,7 @@ impl GameSceneSprite {
     }
 
     fn add_removing_action(&self, block: Block, index: BlockIndex, context: &mut SceneContext) {
-        use ai_behavior::{Action, Sequence, Wait};
+        use ai_behavior::{Action, Sequence};
         use sprite::{Ease, EaseFunction, ScaleTo};
         let id = self.block_ids[index].unwrap();
         let texture = context.assets.block_texture(block, BlockFace::Happy);
