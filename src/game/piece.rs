@@ -26,8 +26,10 @@ pub struct PieceBlocks<'a, I: iter::Iterator<Item = BlockIndex>> {
     indices: I,
 }
 
-impl<'a, I: iter::Iterator<Item = BlockIndex>> PieceBlocks<'a, I> {
-    pub fn next(&mut self) -> Option<(BlockIndex, Block)> {
+impl<'a, I: iter::Iterator<Item = BlockIndex>> iter::Iterator for PieceBlocks<'a, I> {
+    type Item = (BlockIndex, Block);
+
+    fn next(&mut self) -> Option<(BlockIndex, Block)> {
         while let Some(index) = self.indices.next() {
             if let Some(block) = self.piece.block(index) {
                 return Some((index, block));

@@ -63,8 +63,7 @@ impl Game {
         use euclid_ext::Map2D;
         let mut events = vec![];
         let offset = self.piece_state.position;
-        let mut blocks = self.piece_state.piece.blocks();
-        while let Some((index, block)) = blocks.next() {
+        for (index, block) in self.piece_state.piece.blocks() {
             let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);
             debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
             if position.y >= 0 || (position.y as usize) < self.stage_size().height {
@@ -83,8 +82,7 @@ impl Game {
     fn drop_once(&mut self) -> Vec<Event> {
         use euclid_ext::Map2D;
         let offset = self.piece_state.position;
-        let mut blocks = self.piece_state.piece.blocks();
-        while let Some((index, _block)) = blocks.next() {
+        for (index, _block) in self.piece_state.piece.blocks() {
             let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);
             debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
             let bottom = position + euclid::TypedVector2D::new(0, 1);

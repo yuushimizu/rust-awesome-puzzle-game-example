@@ -65,8 +65,7 @@ impl GameSceneSprite {
 
     fn change_piece(&mut self, piece: &Piece, context: &mut SceneContext) {
         self.piece_sprite(context).remove_all_children();
-        let mut blocks = piece.blocks();
-        while let Some((index, block)) = blocks.next() {
+        for (index, block) in piece.blocks() {
             sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
                 .moved_to(index.to_pixel_space())
                 .add_to(self.piece_sprite(context));
