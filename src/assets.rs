@@ -25,20 +25,24 @@ impl BlockFace {
 
 type TextureContext = piston_window::G2dTextureContext;
 
-type Texture = piston_window::G2dTexture;
+pub type Texture = piston_window::G2dTexture;
 
 pub struct Assets {
     path: path::PathBuf,
     texture_context: piston_window::G2dTextureContext,
     texture_settings: piston_window::TextureSettings,
     textures: collections::HashMap<String, rc::Rc<Texture>>,
+    empty_texture: rc::Rc<Texture>,
 }
 
 impl Assets {
     pub fn new(
-        texture_context: TextureContext,
+        mut texture_context: TextureContext,
         texture_settings: piston_window::TextureSettings,
     ) -> Self {
+        let empty_texture = rc::Rc::new(
+            Texture::empty(&mut texture_context).expect("can not create an empty texture"),
+        );
         Self {
             path: find_folder::Search::ParentsThenKids(3, 3)
                 .for_folder("assets")
@@ -46,6 +50,7 @@ impl Assets {
             texture_context,
             texture_settings,
             textures: collections::HashMap::new(),
+            empty_texture,
         }
     }
 
@@ -56,10 +61,7 @@ impl Assets {
             piston_window::Flip::None,
             &self.texture_settings,
         )
-        .expect(&format!(
-            "can not load the texture: {}",
-            name
-        ))
+        .expect(&format!("can not load the texture: {}", name))
     }
 
     fn texture(&mut self, name: &str) -> rc::Rc<Texture> {
@@ -80,5 +82,9 @@ impl Assets {
 
     pub fn background_tile_texture(&mut self) -> rc::Rc<Texture> {
         self.texture("bg-tile.png")
+    }
+
+    pub fn empty_texture(&self) -> rc::Rc<Texture> {
+        self.empty_texture.clone()
     }
 }

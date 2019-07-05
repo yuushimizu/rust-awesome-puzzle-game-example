@@ -12,3 +12,4 @@ find_folder = "0.3.0"
 array2d = {git = "https://github.com/yuushimizu/array2d-rs"}
 euclid-ext = {git = "https://github.com/yuushimizu/euclid-ext"}
 rand = "0.7.0"
+uuid = "0.6.5"
