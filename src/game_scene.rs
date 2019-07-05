@@ -1,5 +1,5 @@
 use crate::assets::BlockFace;
-use crate::game::{BlockIndex, Event, Game, Piece, PiecePosition, PieceSpace, StageSpace};
+use crate::game::{BlockIndex, BlockIndexOffset, Event, Game, Piece};
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
 use euclid_ext::{Map2D, Points};
@@ -13,7 +13,7 @@ trait ToPixelSpace {
     fn to_pixel_space(self) -> Self::Output;
 }
 
-impl ToPixelSpace for euclid::TypedPoint2D<isize, StageSpace> {
+impl ToPixelSpace for BlockIndexOffset {
     type Output = PixelPosition;
 
     fn to_pixel_space(self) -> PixelPosition {
@@ -21,19 +21,11 @@ impl ToPixelSpace for euclid::TypedPoint2D<isize, StageSpace> {
     }
 }
 
-impl ToPixelSpace for BlockIndex<StageSpace> {
+impl ToPixelSpace for BlockIndex {
     type Output = PixelPosition;
 
     fn to_pixel_space(self) -> PixelPosition {
         self.cast::<isize>().to_pixel_space()
-    }
-}
-
-impl ToPixelSpace for BlockIndex<PieceSpace> {
-    type Output = PixelPosition;
-
-    fn to_pixel_space(self) -> PixelPosition {
-        self.map(|n| euclid::Length::new(n.get() as f64) * TILE_SIZE)
     }
 }
 
@@ -75,7 +67,7 @@ impl GameSceneSprite {
         }
     }
 
-    fn move_piece(&mut self, position: PiecePosition, context: &mut SceneContext) {
+    fn move_piece(&mut self, position: BlockIndexOffset, context: &mut SceneContext) {
         self.piece_sprite(context)
             .move_to(position.to_pixel_space());
     }

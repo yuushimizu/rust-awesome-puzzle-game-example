@@ -13,8 +13,13 @@ impl Block {
     }
 }
 
-pub type BlockGrid<U> = array2d::Array2D<Option<Block>, U>;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum BlockSpace {}
 
-pub type BlockGridSize<U> = array2d::Size<U>;
+pub type BlockGrid = array2d::Array2D<Option<Block>, BlockSpace>;
 
-pub type BlockIndex<U> = array2d::Index<U>;
+pub type BlockGridSize = array2d::Size<BlockSpace>;
+
+pub type BlockIndex = array2d::Index<BlockSpace>;
+
+pub type BlockIndexOffset = euclid::TypedPoint2D<isize, BlockSpace>;

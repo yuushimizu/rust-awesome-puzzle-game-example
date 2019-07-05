@@ -1,23 +1,20 @@
 use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum PieceSpace {}
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
-    blocks: BlockGrid<PieceSpace>,
+    blocks: BlockGrid,
 }
 
 impl Piece {
-    pub fn new(blocks: BlockGrid<PieceSpace>) -> Self {
+    pub fn new(blocks: BlockGrid) -> Self {
         Self { blocks }
     }
 
-    pub fn size(&self) -> BlockGridSize<PieceSpace> {
+    pub fn size(&self) -> BlockGridSize {
         self.blocks.size()
     }
 
-    pub fn blocks(&self) -> &BlockGrid<PieceSpace> {
+    pub fn blocks(&self) -> &BlockGrid {
         &self.blocks
     }
 }

@@ -3,9 +3,9 @@ pub mod event;
 pub mod piece;
 mod piece_producer;
 
-pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex};
+pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace};
 pub use event::Event;
-pub use piece::{Piece, PieceSpace};
+pub use piece::Piece;
 
 use euclid;
 use euclid_ext::Points;
@@ -15,24 +15,19 @@ const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
 const WAIT: f64 = 0.2;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum StageSpace {}
-
-pub type PiecePosition = euclid::TypedPoint2D<isize, StageSpace>;
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PieceState {
     pub piece: Piece,
-    pub position: PiecePosition,
+    pub position: BlockIndexOffset,
 }
 
 impl PieceState {
-    pub fn new(piece: Piece, position: PiecePosition) -> Self {
+    pub fn new(piece: Piece, position: BlockIndexOffset) -> Self {
         Self { piece, position }
     }
 }
 
-fn initial_piece_position(piece: &Piece) -> PiecePosition {
+fn initial_piece_position(piece: &Piece) -> BlockIndexOffset {
     euclid::TypedPoint2D::new(
         ((WIDTH - piece.size().width) / 2) as isize,
         -(piece.size().height as isize) / 2,
@@ -41,7 +36,7 @@ fn initial_piece_position(piece: &Piece) -> PiecePosition {
 
 #[derive(Debug, Clone)]
 pub struct Game {
-    stage: BlockGrid<StageSpace>,
+    stage: BlockGrid,
     piece_state: PieceState,
     piece_producer: PieceProducer,
     wait: f64,
@@ -60,16 +55,23 @@ impl Game {
         }
     }
 
-    pub fn stage_size(&self) -> BlockGridSize<StageSpace> {
+    pub fn stage_size(&self) -> BlockGridSize {
         self.stage.size()
     }
 
-    pub fn block(&self, index: BlockIndex<StageSpace>) -> Option<Block> {
+    pub fn block(&self, index: BlockIndex) -> Option<Block> {
         self.stage.get(index).and_then(|x| *x)
     }
 
     fn drop_once(&mut self) {
-        for index in euclid::TypedRect::from_size(self.piece_state.piece.size()).points() {}
+        let offset = self.piece_state.position;
+        for index in euclid::TypedRect::from_size(self.piece_state.piece.size()).points() {
+            //            let position: BlockIndexOffset =
+            //                (index, offset).map(|(i, o)| i.cast::<isize>() + o.get());
+            //if euclid::TypedRect::from_size(self.stage_size()).contains(&position) {
+
+            //            }
+        }
         self.piece_state.position.y += 1;
     }
 
