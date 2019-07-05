@@ -1,4 +1,4 @@
-use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
+use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber, BlockSpace};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
@@ -41,4 +41,18 @@ pub fn standards() -> Vec<Piece> {
     .enumerate()
     .map(|(number, (size, blocks))| piece(*size, number, blocks))
     .collect()
+}
+
+pub type PiecePosition = euclid::TypedPoint2D<isize, BlockSpace>;
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PieceState {
+    pub piece: Piece,
+    pub position: PiecePosition,
+}
+
+impl PieceState {
+    pub fn new(piece: Piece, position: PiecePosition) -> Self {
+        Self { piece, position }
+    }
 }

@@ -4,7 +4,7 @@ mod game;
 use assets::{Assets, BlockFace};
 use euclid;
 use euclid_ext::{Map2D, Points};
-use game::{BlockIndex, BlockSpace, Game, Piece, PiecePosition};
+use game::{BlockIndex, BlockSpace, Game, PieceState};
 use piston_window::*;
 use uuid;
 
@@ -75,20 +75,31 @@ impl Scene {
         self.scene.child_mut(self.piece_id).unwrap()
     }
 
-    fn update_piece(&mut self, piece: &Piece, position: PiecePosition, assets: &mut Assets) {
+    fn update_piece(&mut self, piece_state: &PieceState, assets: &mut Assets) {
         let piece_sprite = self.piece_mut();
-        let piece_position = tile_position(position);
+        let piece_position = tile_position(piece_state.position);
         piece_sprite.set_position(piece_position.x, piece_position.y);
-        for index in euclid::TypedRect::new(BlockIndex::zero(), piece.size()).points() {
-            if (position.y + index.y as isize) < 0 {
+        for index in euclid::TypedRect::new(BlockIndex::zero(), piece_state.piece.size()).points() {
+            if (piece_state.position.y + index.y as isize) < 0 {
                 continue;
             }
-            if let Some(block) = piece.blocks()[index] {
+            if let Some(block) = piece_state.piece.blocks()[index] {
                 let texture = assets.block_texture(block, BlockFace::Normal);
                 let mut sprite = sprite::Sprite::from_texture(texture.clone());
                 let position = block_position(index);
                 sprite.set_position(position.x, position.y);
                 piece_sprite.add_child(sprite);
+            }
+        }
+    }
+
+    fn apply_events(&mut self, events: Vec<game::Event>, assets: &mut Assets) {
+        for event in events {
+            use game::Event::*;
+            match event {
+                ChangePiece(piece_state) => {
+                    self.update_piece(piece_state, assets);
+                }
             }
         }
     }
@@ -102,7 +113,7 @@ fn main() {
             .automatic_close(true)
             .build()
             .expect("failed to start the game");
-    window.set_max_fps(30);
+    window.set_max_fps(15);
     let mut texture_settings = TextureSettings::new();
     texture_settings.set_filter(Filter::Nearest);
     let mut assets = Assets::new(
@@ -114,7 +125,7 @@ fn main() {
     );
     let mut game = game::Game::new();
     let mut scene = Scene::new(&mut assets, &game);
-    scene.update_piece(game.piece(), game.piece_position(), &mut assets);
+    scene.apply_events(game.initial_events(), &mut assets);
     while let Some(event) = window.next() {
         match event {
             Event::Loop(Loop::Render(_)) => {
@@ -124,15 +135,7 @@ fn main() {
                 });
             }
             Event::Loop(Loop::Update(arg)) => {
-                let events = game.update(arg.dt);
-                for event in events {
-                    use game::Event::*;
-                    match event {
-                        ChangePiece(piece, position) => {
-                            scene.update_piece(piece, position, &mut assets);
-                        }
-                    }
-                }
+                scene.apply_events(game.update(arg.dt), &mut assets);
             }
             _ => {}
         }

@@ -5,37 +5,20 @@ pub mod piece_producer;
 
 pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockSpace};
 pub use event::Event;
-pub use piece::Piece;
+pub use piece::{Piece, PiecePosition, PieceState};
 
 use euclid;
 use piece_producer::PieceProducer;
 
 const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
-const WAIT: f64 = 1.0;
-
-pub type PiecePosition = euclid::TypedPoint2D<isize, BlockSpace>;
+const WAIT: f64 = 0.2;
 
 fn initial_piece_position(piece: &Piece) -> PiecePosition {
     euclid::TypedPoint2D::new(
         ((WIDTH - piece.size().width) / 2) as isize,
         -(piece.size().height as isize) / 2,
     )
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct PieceState {
-    piece: Piece,
-    position: PiecePosition,
-}
-
-impl PieceState {
-    pub fn new(piece: Piece) -> Self {
-        Self {
-            position: initial_piece_position(&piece),
-            piece,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,9 +32,11 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut piece_producer = PieceProducer::new(piece::standards());
+        let piece = piece_producer.next();
+        let piece_position = initial_piece_position(&piece);
         Self {
             stage: BlockGrid::new(BlockGridSize::new(WIDTH, HEIGHT), None),
-            piece_state: PieceState::new(piece_producer.next()),
+            piece_state: PieceState::new(piece, piece_position),
             piece_producer,
             wait: WAIT,
         }
@@ -65,22 +50,19 @@ impl Game {
         self.stage.get(index).and_then(|x| *x)
     }
 
-    pub fn piece(&self) -> &Piece {
-        &self.piece_state.piece
+    fn drop(&mut self) {
+        self.piece_state.position.y += 1;
     }
 
-    pub fn piece_position(&self) -> PiecePosition {
-        self.piece_state.position
+    pub fn initial_events(&self) -> Vec<Event> {
+        vec![Event::ChangePiece(&self.piece_state)]
     }
 
     pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
-            self.piece_state.position.y += 1;
-            vec![Event::ChangePiece(
-                &self.piece_state.piece,
-                self.piece_state.position,
-            )]
+            self.drop();
+            vec![Event::ChangePiece(&self.piece_state)]
         } else {
             self.wait -= delta;
             vec![]
