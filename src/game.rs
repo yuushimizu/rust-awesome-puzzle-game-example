@@ -106,23 +106,25 @@ impl Game {
             .collect::<Vec<_>>()
     }
 
+    fn remove_lines(&mut self, indices: &[usize]) -> Event {
+        let stage_size = self.stage_size();
+        let mut removed_blocks = vec![];
+        for index in indices
+            .iter()
+            .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
+        {
+            removed_blocks.push((self.stage[index].unwrap(), index));
+            self.stage[index] = None;
+        }
+        Event::RemoveBlocks(removed_blocks)
+    }
+
     fn remove_filled_lines(&mut self) -> Vec<Event> {
         let stage_size = self.stage_size();
-        let removed_line_indices = self.filled_line_indices();
-        let mut remove_lines = || {
-            let mut removed_blocks = vec![];
-            for index in (&removed_line_indices)
-                .iter()
-                .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
-            {
-                removed_blocks.push((self.stage[index].unwrap(), index));
-                self.stage[index] = None;
-            }
-            Event::RemoveBlocks(removed_blocks)
-        };
-        let mut events = vec![remove_lines()];
+        let line_indices = self.filled_line_indices();
+        let mut events = vec![self.remove_lines(&line_indices)];
         let mut moves = vec![];
-        let mut line_boundaries = removed_line_indices;
+        let mut line_boundaries = line_indices;
         line_boundaries.push(self.stage_size().height);
         for (removed, range) in line_boundaries
             .windows(2)
