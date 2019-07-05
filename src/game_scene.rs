@@ -6,6 +6,7 @@ use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
 use array2d;
 use piston_window::*;
+use std::collections;
 use uuid;
 
 const TILE_SIZE: f64 = 8.0;
@@ -35,11 +36,17 @@ impl ToPixelSpace for BlockIndex {
     }
 }
 
+enum Job {
+    Event(Event),
+    Run(Box<dyn FnOnce(&mut GameSceneSprite, &mut SceneContext)>),
+}
+
 struct GameSceneSprite {
     stage_size: BlockGridSize,
     stage_id: uuid::Uuid,
     piece_id: uuid::Uuid,
     block_ids: array2d::Array2D<Option<uuid::Uuid>, BlockSpace>,
+    jobs: collections::VecDeque<Job>,
 }
 
 impl GameSceneSprite {
@@ -59,6 +66,7 @@ impl GameSceneSprite {
             piece_id: context.empty_sprite().add_to(&mut stage),
             stage_id: stage.add_to(context.root()),
             block_ids: array2d::Array2D::new(stage_size, None),
+            jobs: Default::default(),
         }
     }
 
@@ -68,6 +76,22 @@ impl GameSceneSprite {
 
     fn piece_sprite<'a>(&self, context: &'a mut SceneContext) -> &'a mut Sprite {
         context.child_mut(self.piece_id).unwrap()
+    }
+
+    fn block_action_is_running(&self, context: &SceneContext) -> bool {
+        use euclid_ext::Points;
+        for index in euclid::TypedRect::from_size(self.stage_size).points() {
+            if let Some(id) = self.block_ids[index] {
+                if context.scene.running_for_child(id).unwrap_or(0) > 0 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn is_ready(&self, context: &SceneContext) -> bool {
+        !self.block_action_is_running(context)
     }
 
     fn change_piece(&mut self, piece: Piece, context: &mut SceneContext) {
@@ -88,8 +112,12 @@ impl GameSceneSprite {
         );
     }
 
-    fn put_blocks(&mut self, blocks: &[(Block, BlockIndex)], context: &mut SceneContext) {
-        for &(block, index) in blocks {
+    fn remove_piece(&mut self, context: &mut SceneContext) {
+        self.piece_sprite(context).remove_all_children();
+    }
+
+    fn put_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>, context: &mut SceneContext) {
+        for (block, index) in blocks {
             if let Some(old_id) = self.block_ids[index] {
                 self.stage_sprite(context).remove_child(old_id);
             }
@@ -103,20 +131,46 @@ impl GameSceneSprite {
         }
     }
 
-    fn remove_blocks(&mut self, blocks: &[(Block, BlockIndex)], context: &mut SceneContext) {
-        for &(block, index) in blocks {
-            //        let texture = context.assets.block_texture(block, BlockFace::Happy);
-            //        context.child_mut(self.block_ids[index].unwrap()).unwrap().set_texture(texture);
-            context.root().remove_child(self.block_ids[index].unwrap());
+    fn add_removing_action(&self, block: Block, index: BlockIndex, context: &mut SceneContext) {
+        use ai_behavior::{Action, Sequence, Wait};
+        use sprite::{Ease, EaseFunction, ScaleTo};
+        let id = self.block_ids[index].unwrap();
+        let texture = context.assets.block_texture(block, BlockFace::Happy);
+        context.child_mut(id).unwrap().set_texture(texture);
+        context.scene.run(
+            id,
+            &Sequence(vec![
+                Action(Ease(
+                    EaseFunction::CubicOut,
+                    Box::new(ScaleTo(0.15, 0.6, 1.4)),
+                )),
+                Action(Ease(
+                    EaseFunction::CubicOut,
+                    Box::new(ScaleTo(0.15, 4.0, 0.0)),
+                )),
+            ]),
+        );
+    }
+
+    fn remove_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>, context: &mut SceneContext) {
+        for &(block, index) in &blocks {
+            self.add_removing_action(block, index, context);
         }
+        self.jobs
+            .push_front(Job::Run(Box::new(move |this, context| {
+                for (_block, index) in blocks {
+                    let id = std::mem::replace(&mut this.block_ids[index], None).unwrap();
+                    this.stage_sprite(context).remove_child(id);
+                }
+            })));
     }
 
     fn move_blocks(
         &mut self,
-        moves: &[(Block, BlockIndex, BlockIndex)],
+        moves: Vec<(Block, BlockIndex, BlockIndex)>,
         context: &mut SceneContext,
     ) {
-        for &(_block, source, destination) in moves {
+        for (_block, source, destination) in moves {
             let id = std::mem::replace(&mut self.block_ids[source], None).unwrap();
             context
                 .child_mut(id)
@@ -135,22 +189,49 @@ impl GameSceneSprite {
             MovePiece(piece, position) => {
                 self.move_piece(piece, position, context);
             }
+            RemovePiece => {
+                self.remove_piece(context);
+            }
             PutBlocks(blocks) => {
-                self.put_blocks(&blocks, context);
+                self.put_blocks(blocks, context);
             }
             RemoveBlocks(blocks) => {
-                self.remove_blocks(&blocks, context);
+                self.remove_blocks(blocks, context);
             }
             MoveBlocks(moves) => {
-                self.move_blocks(&moves, context);
+                self.move_blocks(moves, context);
             }
         }
     }
 
-    fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {
-        for event in events {
-            self.apply_event(event, context);
+    fn execute_jobs(&mut self, context: &mut SceneContext) {
+        loop {
+            if self.block_action_is_running(context) {
+                break;
+            }
+            if let Some(job) = self.jobs.pop_front() {
+                match job {
+                    Job::Event(event) => {
+                        self.apply_event(event, context);
+                    }
+                    Job::Run(f) => {
+                        f(self, context);
+                    }
+                }
+            } else {
+                break;
+            }
         }
+    }
+
+    fn update(&mut self, context: &mut SceneContext) {
+        self.execute_jobs(context);
+    }
+
+    fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {
+        self.jobs
+            .extend(events.into_iter().map(|event| Job::Event(event)));
+        self.execute_jobs(context);
     }
 }
 
@@ -168,10 +249,16 @@ impl GameScene {
     }
 
     pub fn update(&mut self, delta: f64, context: &mut SceneContext) {
-        self.sprite.apply_events(self.game.update(delta), context);
+        self.sprite.update(context);
+        if self.sprite.is_ready(context) {
+            self.sprite.apply_events(self.game.update(delta), context);
+        }
     }
 
     pub fn input(&mut self, input: Input, context: &mut SceneContext) {
+        if !self.sprite.is_ready(context) {
+            return;
+        }
         match input {
             Input::Button(ButtonArgs {
                 state: ButtonState::Press,

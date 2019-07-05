@@ -13,7 +13,7 @@ use piece_producer::PieceProducer;
 use std::iter;
 const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
-const WAIT: f64 = 0.8;
+const WAIT: f64 = 0.2;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PieceState {
@@ -146,6 +146,7 @@ impl Game {
     }
 
     fn fix_piece(&mut self) -> Vec<Event> {
+        let mut events = vec![Event::RemovePiece];
         let mut blocks = vec![];
         for (index, block) in self.piece_state.blocks() {
             if (index.y as usize) < self.stage_size().height {
@@ -154,7 +155,7 @@ impl Game {
                 blocks.push((block, index));
             }
         }
-        let mut events = vec![Event::PutBlocks(blocks)];
+        events.push(Event::PutBlocks(blocks));
         events.append(&mut self.remove_filled_lines());
         self.piece_state =
             PieceState::with_initial_position(self.piece_producer.next(), self.stage_size());

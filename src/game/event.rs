@@ -4,6 +4,7 @@ use super::piece::Piece;
 pub enum Event {
     ChangePiece(Piece),
     MovePiece(Piece, BlockIndexOffset),
+    RemovePiece,
     PutBlocks(Vec<(Block, BlockIndex)>),
     RemoveBlocks(Vec<(Block, BlockIndex)>),
     MoveBlocks(Vec<(Block, BlockIndex, BlockIndex)>)

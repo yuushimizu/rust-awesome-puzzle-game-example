@@ -28,6 +28,7 @@ fn main() {
     scene_context.root().set_scale(PIXEL_SCALE, PIXEL_SCALE);
     let mut game_scene = GameScene::new(&mut scene_context);
     while let Some(event) = window.next() {
+        scene_context.scene.event(&event);
         match event {
             Event::Loop(Loop::Update(arg)) => {
                 game_scene.update(arg.dt, &mut scene_context);
