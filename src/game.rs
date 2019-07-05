@@ -100,20 +100,27 @@ impl Game {
             .all(|block| block.is_some())
     }
 
+    fn filled_line_indices(&self) -> Vec<usize> {
+        (0..self.stage_size().height)
+            .filter(|&y| self.is_filled_line(y))
+            .collect::<Vec<_>>()
+    }
+
     fn remove_filled_lines(&mut self) -> Vec<Event> {
         let stage_size = self.stage_size();
-        let removed_line_indices = (0..stage_size.height)
-            .filter(|&y| self.is_filled_line(y))
-            .collect::<Vec<_>>();
-        let mut removed_blocks = vec![];
-        for index in (&removed_line_indices)
-            .iter()
-            .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
-        {
-            removed_blocks.push((self.stage[index].unwrap(), index));
-            self.stage[index] = None;
-        }
-        let mut events = vec![Event::RemoveBlocks(removed_blocks)];
+        let removed_line_indices = self.filled_line_indices();
+        let mut remove_lines = || {
+            let mut removed_blocks = vec![];
+            for index in (&removed_line_indices)
+                .iter()
+                .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
+            {
+                removed_blocks.push((self.stage[index].unwrap(), index));
+                self.stage[index] = None;
+            }
+            Event::RemoveBlocks(removed_blocks)
+        };
+        let mut events = vec![remove_lines()];
         let mut line_boundaries = removed_line_indices;
         line_boundaries.push(self.stage_size().height);
         for (removed, range) in line_boundaries
