@@ -105,6 +105,21 @@ impl GameSceneSprite {
         context.root().remove_child(self.block_ids[index].unwrap());
     }
 
+    fn move_block(
+        &mut self,
+        _block: Block,
+        source: BlockIndex,
+        destination: BlockIndex,
+        context: &mut SceneContext,
+    ) {
+        let id = std::mem::replace(&mut self.block_ids[source], None).unwrap();
+        context
+            .child_mut(id)
+            .unwrap()
+            .move_to(destination.to_pixel_space(self.stage_size));
+        self.block_ids[destination] = Some(id);
+    }
+
     fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {
         for event in events {
             use Event::*;
@@ -125,7 +140,9 @@ impl GameSceneSprite {
                     block,
                     source,
                     destination,
-                } => {}
+                } => {
+                    self.move_block(block, source, destination, context);
+                }
             }
         }
     }

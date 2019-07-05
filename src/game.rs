@@ -114,16 +114,26 @@ impl Game {
             self.stage[index] = None;
         }
         let mut line_boundaries = removed_line_indices;
-        /*
         line_boundaries.push(self.stage_size().height);
-        for (removed, range) in line_boundaries.windows(2).map(|area| (area[0] + 1..area[1])).enumerate() {
-            for index in range.flat_map(|y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y))) {
+        for (removed, range) in line_boundaries
+            .windows(2)
+            .map(|area| (area[0] + 1..area[1]))
+            .enumerate()
+        {
+            for index in
+                range.flat_map(|y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
+            {
                 if let Some(block) = self.stage[index] {
-                    let destination = BlockIndex::new(index.x, index.y + )
+                    let destination = BlockIndex::new(index.x, index.y - removed - 1);
+                    events.push(Event::MoveBlock {
+                        block,
+                        source: index,
+                        destination,
+                    });
+                    self.stage[destination] = std::mem::replace(&mut self.stage[index], None);
                 }
             }
         }
-        */
         events
     }
 
