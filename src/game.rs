@@ -33,33 +33,15 @@ impl PieceState {
         );
         Self::new(piece, position)
     }
-}
 
-struct StagePieceBlocks<'a, I: iter::Iterator<Item = BlockIndex>> {
-    blocks: piece::PieceBlocks<'a, I>,
-    piece_position: BlockIndexOffset,
-}
-
-impl<'a, I: iter::Iterator<Item = BlockIndex>> iter::Iterator for StagePieceBlocks<'a, I> {
-    type Item = (BlockIndexOffset, Block);
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn piece_blocks<'a>(&'a self) -> impl iter::Iterator<Item = (BlockIndexOffset, Block)> + 'a {
         use euclid_ext::Map2D;
-        self.blocks.next().map(|(index, block)| {
+        self.piece.blocks().map(move |(index, block)| {
             (
-                (self.piece_position, index.cast::<isize>()).map(|(i, p)| i + p),
+                (self.position, index.cast::<isize>()).map(|(i, p)| i + p),
                 block,
             )
         })
-    }
-}
-
-impl PieceState {
-    fn piece_blocks(&self) -> StagePieceBlocks<impl iter::Iterator<Item = BlockIndex>> {
-        StagePieceBlocks {
-            blocks: self.piece.blocks(),
-            piece_position: self.position,
-        }
     }
 }
 
