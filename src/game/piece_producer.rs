@@ -22,6 +22,8 @@ impl PieceProducer {
             self.current_index = 0;
             self.source.shuffle(&mut rand::thread_rng());
         }
-        self.source[self.current_index].clone()
+        let result = self.source[self.current_index].clone();
+        self.current_index += 1;
+        result
     }
 }

@@ -8,7 +8,7 @@ pub use event::Event;
 pub use piece::Piece;
 
 use euclid;
-use euclid_ext::Points;
+use euclid_ext::{Map2D, Points};
 use piece_producer::PieceProducer;
 
 const WIDTH: usize = 10;
@@ -25,13 +25,14 @@ impl PieceState {
     pub fn new(piece: Piece, position: BlockIndexOffset) -> Self {
         Self { piece, position }
     }
-}
 
-fn initial_piece_position(piece: &Piece) -> BlockIndexOffset {
-    euclid::TypedPoint2D::new(
-        ((WIDTH - piece.size().width) / 2) as isize,
-        -(piece.size().height as isize) / 2,
-    )
+    pub fn with_initial_position(piece: Piece, stage_size: BlockGridSize) -> Self {
+        let position = BlockIndexOffset::new(
+            ((stage_size.width - piece.size().width) / 2) as isize,
+            -(piece.size().height as isize) / 2,
+        );
+        Self::new(piece, position)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -46,10 +47,10 @@ impl Game {
     pub fn new() -> Self {
         let mut piece_producer = PieceProducer::new(piece::standards());
         let piece = piece_producer.next();
-        let piece_position = initial_piece_position(&piece);
+        let stage_size = BlockGridSize::new(WIDTH, HEIGHT);
         Self {
-            stage: BlockGrid::new(BlockGridSize::new(WIDTH, HEIGHT), None),
-            piece_state: PieceState::new(piece, piece_position),
+            stage: BlockGrid::new(stage_size, None),
+            piece_state: PieceState::with_initial_position(piece, stage_size),
             piece_producer,
             wait: WAIT,
         }
@@ -63,16 +64,35 @@ impl Game {
         self.stage.get(index).and_then(|x| *x)
     }
 
-    fn drop_once(&mut self) {
+    fn fix_piece(&mut self) -> Vec<Event> {
+        // fix
+        self.piece_state =
+            PieceState::with_initial_position(self.piece_producer.next(), self.stage_size());
+        vec![
+            Event::ChangePiece(&self.piece_state.piece),
+            Event::MovePiece(self.piece_state.position),
+        ]
+    }
+
+    fn drop_once(&mut self) -> Vec<Event> {
         let offset = self.piece_state.position;
         for index in euclid::TypedRect::from_size(self.piece_state.piece.size()).points() {
-            //            let position: BlockIndexOffset =
-            //                (index, offset).map(|(i, o)| i.cast::<isize>() + o.get());
-            //if euclid::TypedRect::from_size(self.stage_size()).contains(&position) {
-
-            //            }
+            if self.piece_state.piece.blocks()[index].is_none() {
+                continue;
+            }
+            let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);
+            debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
+            let bottom = position + euclid::TypedVector2D::new(0, 1);
+            if bottom.y < 0 {
+                continue;
+            }
+            let bottom = bottom.cast::<usize>();
+            if bottom.y >= self.stage_size().height || self.stage[bottom].is_some() {
+                return self.fix_piece();
+            }
         }
         self.piece_state.position.y += 1;
+        vec![Event::MovePiece(self.piece_state.position)]
     }
 
     pub fn initial_events(&self) -> Vec<Event> {
@@ -85,8 +105,7 @@ impl Game {
     pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
-            self.drop_once();
-            vec![Event::MovePiece(self.piece_state.position)]
+            self.drop_once()
         } else {
             self.wait -= delta;
             vec![]
