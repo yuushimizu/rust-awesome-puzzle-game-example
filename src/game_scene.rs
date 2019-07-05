@@ -38,20 +38,21 @@ impl ToPixelSpace for BlockIndex {
 
 enum Job {
     GameEvent(GameEvent),
-    Run(Box<dyn FnOnce(&mut GameScene, &mut SceneContext)>),
+    Run(Box<dyn FnOnce(&mut GameScene)>),
 }
 
-pub struct GameScene {
+pub struct GameScene<'a> {
     game: Game,
     scene: sprite::Scene<Texture>,
+    context: &'a mut SceneContext,
     stage_id: uuid::Uuid,
     piece_id: uuid::Uuid,
     block_ids: array2d::Array2D<Option<uuid::Uuid>, BlockSpace>,
     jobs: collections::VecDeque<Job>,
 }
 
-impl GameScene {
-    pub fn new(context: &mut SceneContext) -> Self {
+impl<'a> GameScene<'a> {
+    pub fn new(context: &'a mut SceneContext) -> Self {
         let game = Game::new();
         let mut stage = context
             .empty_sprite()
@@ -71,9 +72,10 @@ impl GameScene {
             block_ids: array2d::Array2D::new(game.stage_size(), None),
             game,
             scene,
+            context,
             jobs: Default::default(),
         };
-        result.apply_game_events(initial_events, context);
+        result.apply_game_events(initial_events);
         result
     }
 
@@ -101,21 +103,18 @@ impl GameScene {
         true
     }
 
-    fn change_piece(&mut self, piece: Piece, context: &mut SceneContext) {
+    fn change_piece(&mut self, piece: Piece) {
         self.piece_sprite().remove_all_children();
         for (index, block) in piece.blocks() {
-            sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
-                .moved_to(index.to_pixel_space(piece.size()))
-                .add_to(self.piece_sprite());
+            sprite::Sprite::from_texture(
+                self.context.assets.block_texture(block, BlockFace::Sleep),
+            )
+            .moved_to(index.to_pixel_space(piece.size()))
+            .add_to(self.piece_sprite());
         }
     }
 
-    fn move_piece(
-        &mut self,
-        piece: Piece,
-        position: BlockIndexOffset,
-        _context: &mut SceneContext,
-    ) {
+    fn move_piece(&mut self, piece: Piece, position: BlockIndexOffset) {
         let position = position.to_pixel_space(self.stage_size())
             - BlockIndex::new(0, 0)
                 .to_pixel_space(piece.size())
@@ -123,18 +122,18 @@ impl GameScene {
         self.piece_sprite().move_to(position);
     }
 
-    fn remove_piece(&mut self, _context: &mut SceneContext) {
+    fn remove_piece(&mut self) {
         self.piece_sprite().remove_all_children();
     }
 
-    fn put_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>, context: &mut SceneContext) {
+    fn put_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>) {
         for (block, index) in blocks {
             if let Some(old_id) = self.block_ids[index] {
                 self.stage_sprite().remove_child(old_id);
             }
             self.block_ids[index] = Some(
                 sprite::Sprite::from_texture(
-                    context.assets.block_texture(block, BlockFace::Normal),
+                    self.context.assets.block_texture(block, BlockFace::Normal),
                 )
                 .moved_to(index.to_pixel_space(self.stage_size()))
                 .add_to(self.stage_sprite()),
@@ -142,11 +141,11 @@ impl GameScene {
         }
     }
 
-    fn add_removing_action(&mut self, block: Block, index: BlockIndex, context: &mut SceneContext) {
+    fn add_removing_action(&mut self, block: Block, index: BlockIndex) {
         use ai_behavior::{Action, Sequence};
         use sprite::{Ease, EaseFunction, ScaleTo};
         let id = self.block_ids[index].unwrap();
-        let texture = context.assets.block_texture(block, BlockFace::Happy);
+        let texture = self.context.assets.block_texture(block, BlockFace::Happy);
         self.scene.child_mut(id).unwrap().set_texture(texture);
         self.scene.run(
             id,
@@ -163,24 +162,19 @@ impl GameScene {
         );
     }
 
-    fn remove_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>, context: &mut SceneContext) {
+    fn remove_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>) {
         for &(block, index) in &blocks {
-            self.add_removing_action(block, index, context);
+            self.add_removing_action(block, index);
         }
-        self.jobs
-            .push_front(Job::Run(Box::new(move |this, _context| {
-                for (_block, index) in blocks {
-                    let id = std::mem::replace(&mut this.block_ids[index], None).unwrap();
-                    this.stage_sprite().remove_child(id);
-                }
-            })));
+        self.jobs.push_front(Job::Run(Box::new(move |this| {
+            for (_block, index) in blocks {
+                let id = std::mem::replace(&mut this.block_ids[index], None).unwrap();
+                this.stage_sprite().remove_child(id);
+            }
+        })));
     }
 
-    fn move_blocks(
-        &mut self,
-        moves: Vec<(Block, BlockIndex, BlockIndex)>,
-        _context: &mut SceneContext,
-    ) {
+    fn move_blocks(&mut self, moves: Vec<(Block, BlockIndex, BlockIndex)>) {
         for (_block, source, destination) in moves {
             let id = std::mem::replace(&mut self.block_ids[source], None).unwrap();
             let position = destination.to_pixel_space(self.stage_size());
@@ -189,31 +183,31 @@ impl GameScene {
         }
     }
 
-    fn apply_game_event(&mut self, event: GameEvent, context: &mut SceneContext) {
+    fn apply_game_event(&mut self, event: GameEvent) {
         use GameEvent::*;
         match event {
             ChangePiece(piece) => {
-                self.change_piece(piece, context);
+                self.change_piece(piece);
             }
             MovePiece(piece, position) => {
-                self.move_piece(piece, position, context);
+                self.move_piece(piece, position);
             }
             RemovePiece => {
-                self.remove_piece(context);
+                self.remove_piece();
             }
             PutBlocks(blocks) => {
-                self.put_blocks(blocks, context);
+                self.put_blocks(blocks);
             }
             RemoveBlocks(blocks) => {
-                self.remove_blocks(blocks, context);
+                self.remove_blocks(blocks);
             }
             MoveBlocks(moves) => {
-                self.move_blocks(moves, context);
+                self.move_blocks(moves);
             }
         }
     }
 
-    fn execute_jobs(&mut self, context: &mut SceneContext) {
+    fn execute_jobs(&mut self) {
         loop {
             if !self.is_ready() {
                 break;
@@ -221,10 +215,10 @@ impl GameScene {
             if let Some(job) = self.jobs.pop_front() {
                 match job {
                     Job::GameEvent(event) => {
-                        self.apply_game_event(event, context);
+                        self.apply_game_event(event);
                     }
                     Job::Run(f) => {
-                        f(self, context);
+                        f(self);
                     }
                 }
             } else {
@@ -233,21 +227,21 @@ impl GameScene {
         }
     }
 
-    fn apply_game_events(&mut self, events: Vec<GameEvent>, context: &mut SceneContext) {
+    fn apply_game_events(&mut self, events: Vec<GameEvent>) {
         self.jobs
             .extend(events.into_iter().map(|event| Job::GameEvent(event)));
-        self.execute_jobs(context);
+        self.execute_jobs();
     }
 
-    fn update(&mut self, delta: f64, context: &mut SceneContext) {
-        self.execute_jobs(context);
+    fn update(&mut self, delta: f64) {
+        self.execute_jobs();
         if self.is_ready() {
             let events = self.game.update(delta);
-            self.apply_game_events(events, context);
+            self.apply_game_events(events);
         }
     }
 
-    fn input(&mut self, input: Input, context: &mut SceneContext) {
+    fn input(&mut self, input: Input) {
         if !self.is_ready() {
             return;
         }
@@ -266,22 +260,17 @@ impl GameScene {
                     Key::X => self.game.rotate_piece_right(),
                     _ => return,
                 };
-                self.apply_game_events(events, context);
+                self.apply_game_events(events);
             }
             _ => {}
         }
     }
 
-    pub fn apply_window_event(
-        &mut self,
-        event: Event,
-        window: &mut PistonWindow,
-        scene_context: &mut SceneContext,
-    ) {
+    pub fn apply_window_event(&mut self, event: Event, window: &mut PistonWindow) {
         self.scene.event(&event);
         match event {
             Event::Loop(Loop::Update(arg)) => {
-                self.update(arg.dt, scene_context);
+                self.update(arg.dt);
             }
             Event::Loop(Loop::Render(_)) => {
                 window.draw_2d(&event, |c, g, _| {
@@ -290,7 +279,7 @@ impl GameScene {
                 });
             }
             Event::Input(input, _) => {
-                self.input(input, scene_context);
+                self.input(input);
             }
             _ => {}
         }

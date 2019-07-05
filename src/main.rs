@@ -18,6 +18,6 @@ fn main() {
     let mut scene_context = SceneContext::new(&mut window);
     let mut game_scene = GameScene::new(&mut scene_context);
     while let Some(event) = window.next() {
-        game_scene.apply_window_event(event, &mut window, &mut scene_context);
+        game_scene.apply_window_event(event, &mut window);
     }
 }
