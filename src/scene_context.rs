@@ -1,11 +1,9 @@
-use crate::assets::{Assets, Texture};
+use crate::assets::Assets;
 use crate::sprite_ext::Sprite;
 use piston_window::*;
-use uuid;
 
 pub struct SceneContext {
     pub assets: Assets,
-    pub scene: sprite::Scene<Texture>,
 }
 
 impl SceneContext {
@@ -20,12 +18,8 @@ impl SceneContext {
                 },
                 texture_settings,
             ),
-            scene: sprite::Scene::new(),
-        }
-    }
 
-    pub fn child_mut(&mut self, id: uuid::Uuid) -> Option<&mut Sprite> {
-        self.scene.child_mut(id)
+        }
     }
 
     pub fn empty_sprite(&self) -> Sprite {

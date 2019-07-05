@@ -4,7 +4,7 @@ pub mod piece;
 mod piece_producer;
 
 pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace};
-pub use event::Event;
+pub use event::GameEvent;
 pub use piece::Piece;
 
 use euclid;
@@ -66,12 +66,12 @@ impl Game {
         self.stage.size()
     }
 
-    fn change_piece_event(&self) -> Event {
-        Event::ChangePiece(self.piece_state.piece.clone())
+    fn change_piece_event(&self) -> GameEvent {
+        GameEvent::ChangePiece(self.piece_state.piece.clone())
     }
 
-    fn move_piece_event(&self) -> Event {
-        Event::MovePiece(self.piece_state.piece.clone(), self.piece_state.position)
+    fn move_piece_event(&self) -> GameEvent {
+        GameEvent::MovePiece(self.piece_state.piece.clone(), self.piece_state.position)
     }
 
     fn can_put_to(&self, index: BlockIndexOffset) -> bool {
@@ -106,7 +106,7 @@ impl Game {
             .collect::<Vec<_>>()
     }
 
-    fn remove_lines(&mut self, indices: &[usize]) -> Event {
+    fn remove_lines(&mut self, indices: &[usize]) -> GameEvent {
         let stage_size = self.stage_size();
         let mut removed_blocks = vec![];
         for index in indices
@@ -116,10 +116,10 @@ impl Game {
             removed_blocks.push((self.stage[index].unwrap(), index));
             self.stage[index] = None;
         }
-        Event::RemoveBlocks(removed_blocks)
+        GameEvent::RemoveBlocks(removed_blocks)
     }
 
-    fn remove_filled_lines(&mut self) -> Vec<Event> {
+    fn remove_filled_lines(&mut self) -> Vec<GameEvent> {
         let stage_size = self.stage_size();
         let line_indices = self.filled_line_indices();
         let mut events = vec![self.remove_lines(&line_indices)];
@@ -141,12 +141,12 @@ impl Game {
                 }
             }
         }
-        events.push(Event::MoveBlocks(moves));
+        events.push(GameEvent::MoveBlocks(moves));
         events
     }
 
-    fn fix_piece(&mut self) -> Vec<Event> {
-        let mut events = vec![Event::RemovePiece];
+    fn fix_piece(&mut self) -> Vec<GameEvent> {
+        let mut events = vec![GameEvent::RemovePiece];
         let mut blocks = vec![];
         for (index, block) in self.piece_state.blocks() {
             if (index.y as usize) < self.stage_size().height {
@@ -155,7 +155,7 @@ impl Game {
                 blocks.push((block, index));
             }
         }
-        events.push(Event::PutBlocks(blocks));
+        events.push(GameEvent::PutBlocks(blocks));
         events.append(&mut self.remove_filled_lines());
         self.piece_state =
             PieceState::with_initial_position(self.piece_producer.next(), self.stage_size());
@@ -173,11 +173,11 @@ impl Game {
         }
     }
 
-    pub fn initial_events(&self) -> Vec<Event> {
+    pub fn initial_events(&self) -> Vec<GameEvent> {
         vec![self.change_piece_event(), self.move_piece_event()]
     }
 
-    pub fn update(&mut self, delta: f64) -> Vec<Event> {
+    pub fn update(&mut self, delta: f64) -> Vec<GameEvent> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
             self.drop_piece_soft()
@@ -191,7 +191,7 @@ impl Game {
         self.can_transform_piece(|index| BlockIndexOffset::new(index.x + offset, index.y))
     }
 
-    fn try_move(&mut self, offset: isize) -> Vec<Event> {
+    fn try_move(&mut self, offset: isize) -> Vec<GameEvent> {
         if self.can_move(offset) {
             self.piece_state.position.x += offset;
             vec![self.move_piece_event()]
@@ -200,15 +200,15 @@ impl Game {
         }
     }
 
-    pub fn move_piece_left(&mut self) -> Vec<Event> {
+    pub fn move_piece_left(&mut self) -> Vec<GameEvent> {
         self.try_move(-1)
     }
 
-    pub fn move_piece_right(&mut self) -> Vec<Event> {
+    pub fn move_piece_right(&mut self) -> Vec<GameEvent> {
         self.try_move(1)
     }
 
-    pub fn drop_piece_soft(&mut self) -> Vec<Event> {
+    pub fn drop_piece_soft(&mut self) -> Vec<GameEvent> {
         if self.drop_once() {
             vec![self.move_piece_event()]
         } else {
@@ -216,26 +216,26 @@ impl Game {
         }
     }
 
-    pub fn drop_piece_hard(&mut self) -> Vec<Event> {
+    pub fn drop_piece_hard(&mut self) -> Vec<GameEvent> {
         while self.drop_once() {}
         self.fix_piece()
     }
 
-    fn try_change_piece(&mut self, new_piece: Piece) -> Vec<Event> {
+    fn try_change_piece(&mut self, new_piece: Piece) -> Vec<GameEvent> {
         let new_state = PieceState::new(new_piece, self.piece_state.position);
         if new_state.blocks().all(|(index, _)| self.can_put_to(index)) {
             self.piece_state = new_state;
-            vec![Event::ChangePiece(self.piece_state.piece.clone())]
+            vec![GameEvent::ChangePiece(self.piece_state.piece.clone())]
         } else {
             vec![]
         }
     }
 
-    pub fn rotate_piece_right(&mut self) -> Vec<Event> {
+    pub fn rotate_piece_right(&mut self) -> Vec<GameEvent> {
         self.try_change_piece(self.piece_state.piece.rotate_right())
     }
 
-    pub fn rotate_piece_left(&mut self) -> Vec<Event> {
+    pub fn rotate_piece_left(&mut self) -> Vec<GameEvent> {
         self.try_change_piece(self.piece_state.piece.rotate_left())
     }
 }
