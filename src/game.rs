@@ -8,8 +8,9 @@ pub use event::Event;
 pub use piece::Piece;
 
 use euclid;
-use piece_producer::PieceProducer;
 
+use piece_producer::PieceProducer;
+use std::iter;
 const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
 const WAIT: f64 = 0.2;
@@ -31,6 +32,34 @@ impl PieceState {
             -(piece.size().height as isize) / 2,
         );
         Self::new(piece, position)
+    }
+}
+
+struct StagePieceBlocks<'a, I: iter::Iterator<Item = BlockIndex>> {
+    blocks: piece::PieceBlocks<'a, I>,
+    piece_position: BlockIndexOffset,
+}
+
+impl<'a, I: iter::Iterator<Item = BlockIndex>> iter::Iterator for StagePieceBlocks<'a, I> {
+    type Item = (BlockIndexOffset, Block);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use euclid_ext::Map2D;
+        self.blocks.next().map(|(index, block)| {
+            (
+                (self.piece_position, index.cast::<isize>()).map(|(i, p)| i + p),
+                block,
+            )
+        })
+    }
+}
+
+impl PieceState {
+    fn piece_blocks(&self) -> StagePieceBlocks<impl iter::Iterator<Item = BlockIndex>> {
+        StagePieceBlocks {
+            blocks: self.piece.blocks(),
+            piece_position: self.position,
+        }
     }
 }
 
@@ -60,16 +89,12 @@ impl Game {
     }
 
     fn fix_piece(&mut self) -> Vec<Event> {
-        use euclid_ext::Map2D;
         let mut events = vec![];
-        let offset = self.piece_state.position;
-        for (index, block) in self.piece_state.piece.blocks() {
-            let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);
-            debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
-            if position.y >= 0 || (position.y as usize) < self.stage_size().height {
-                let position = position.cast::<usize>();
-                self.stage[position] = Some(block);
-                events.push(Event::SetBlock(block, position));
+        for (index, block) in self.piece_state.piece_blocks() {
+            if index.y >= 0 && (index.y as usize) < self.stage_size().height {
+                let index = index.cast::<usize>();
+                self.stage[index] = Some(block);
+                events.push(Event::SetBlock(block, index));
             }
         }
         self.piece_state =
@@ -80,19 +105,19 @@ impl Game {
     }
 
     fn drop_once(&mut self) -> Vec<Event> {
-        use euclid_ext::Map2D;
-        let offset = self.piece_state.position;
-        for (index, _block) in self.piece_state.piece.blocks() {
-            let position: BlockIndexOffset = (offset, index.cast::<isize>()).map(|(o, i)| o + i);
-            debug_assert!(position.x >= 0 || (position.x as usize) < self.stage_size().width);
-            let bottom = position + euclid::TypedVector2D::new(0, 1);
-            if bottom.y < 0 {
-                continue;
-            }
-            let bottom = bottom.cast::<usize>();
-            if bottom.y >= self.stage_size().height || self.stage[bottom].is_some() {
-                return self.fix_piece();
-            }
+        if self
+            .piece_state
+            .piece_blocks()
+            .map(|(index, _)| index + euclid::TypedVector2D::new(0, 1))
+            .filter(|bottom| {
+                bottom.y >= 0
+                    && (bottom.y as usize >= self.stage_size().height
+                        || self.stage[bottom.cast::<usize>()].is_some())
+            })
+            .next()
+            .is_some()
+        {
+            return self.fix_piece();
         }
         self.piece_state.position.y += 1;
         vec![Event::MovePiece(self.piece_state.position)]
