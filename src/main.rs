@@ -60,6 +60,7 @@ fn main() {
             .automatic_close(true)
             .build()
             .expect("failed to start the game");
+    window.set_max_fps(30);
     let mut texture_settings = TextureSettings::new();
     texture_settings.set_filter(Filter::Nearest);
     let mut assets = Assets::new(
@@ -85,9 +86,17 @@ fn main() {
         }
     }
     while let Some(event) = window.next() {
-        window.draw_2d(&event, |c, g, _| {
-            clear([0.0, 0.0, 0.0, 1.0], g);
-            scene.scene.draw(c.transform, g);
-        });
+        match event {
+            Event::Loop(Loop::Render(_)) => {
+                window.draw_2d(&event, |c, g, _| {
+                    clear([0.0, 0.0, 0.0, 1.0], g);
+                    scene.scene.draw(c.transform, g);
+                });
+            }
+            Event::Loop(Loop::Update(arg)) => {
+                println!("{}", arg.dt);
+            }
+            _ => {}
+        }
     }
 }
