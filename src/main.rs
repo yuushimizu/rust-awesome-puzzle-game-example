@@ -4,7 +4,7 @@ mod game;
 use assets::{Assets, BlockFace};
 use euclid;
 use euclid_ext::{Map2D, Points};
-use game::{BlockIndex, BlockSpace, Game};
+use game::{BlockIndex, BlockSpace, Game, Piece, PiecePosition};
 use piston_window::*;
 use uuid;
 
@@ -74,6 +74,24 @@ impl Scene {
     fn piece_mut(&mut self) -> &mut Sprite {
         self.scene.child_mut(self.piece_id).unwrap()
     }
+
+    fn update_piece(&mut self, piece: &Piece, position: PiecePosition, assets: &mut Assets) {
+        let piece_sprite = self.piece_mut();
+        let piece_position = tile_position(position);
+        piece_sprite.set_position(piece_position.x, piece_position.y);
+        for index in euclid::TypedRect::new(BlockIndex::zero(), piece.size()).points() {
+            if (position.y + index.y as isize) < 0 {
+                continue;
+            }
+            if let Some(block) = piece.blocks()[index] {
+                let texture = assets.block_texture(block, BlockFace::Normal);
+                let mut sprite = sprite::Sprite::from_texture(texture.clone());
+                let position = block_position(index);
+                sprite.set_position(position.x, position.y);
+                piece_sprite.add_child(sprite);
+            }
+        }
+    }
 }
 
 fn main() {
@@ -96,21 +114,7 @@ fn main() {
     );
     let mut game = game::Game::new();
     let mut scene = Scene::new(&mut assets, &game);
-    let piece = scene.piece_mut();
-    let piece_position = tile_position(game.piece_position());
-    piece.set_position(piece_position.x, piece_position.y);
-    for index in euclid::TypedRect::new(BlockIndex::zero(), game.piece().size()).points() {
-        if (game.piece_position().y + index.y as isize) < 0 {
-            continue;
-        }
-        if let Some(block) = game.piece().blocks()[index] {
-            let texture = assets.block_texture(block, BlockFace::Normal);
-            let mut sprite = sprite::Sprite::from_texture(texture.clone());
-            let position = block_position(index);
-            sprite.set_position(position.x, position.y);
-            piece.add_child(sprite);
-        }
-    }
+    scene.update_piece(game.piece(), game.piece_position(), &mut assets);
     while let Some(event) = window.next() {
         match event {
             Event::Loop(Loop::Render(_)) => {
@@ -120,7 +124,15 @@ fn main() {
                 });
             }
             Event::Loop(Loop::Update(arg)) => {
-                game.update(arg.dt);
+                let events = game.update(arg.dt);
+                for event in events {
+                    use game::Event::*;
+                    match event {
+                        ChangePiece(piece, position) => {
+                            scene.update_piece(piece, position, &mut assets);
+                        }
+                    }
+                }
             }
             _ => {}
         }

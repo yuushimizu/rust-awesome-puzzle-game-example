@@ -1,4 +1,4 @@
-use super::block::{Block, BlockGrid, BlockGridSize, BlockNumber, BlockIndex};
+use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {

@@ -1,8 +1,10 @@
 pub mod block;
+pub mod event;
 pub mod piece;
 pub mod piece_producer;
 
 pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockSpace};
+pub use event::Event;
 pub use piece::Piece;
 
 use euclid;
@@ -12,7 +14,7 @@ const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
 const WAIT: f64 = 1.0;
 
-type PiecePosition = euclid::TypedPoint2D<isize, BlockSpace>;
+pub type PiecePosition = euclid::TypedPoint2D<isize, BlockSpace>;
 
 fn initial_piece_position(piece: &Piece) -> PiecePosition {
     euclid::TypedPoint2D::new(
@@ -71,12 +73,17 @@ impl Game {
         self.piece_state.position
     }
 
-    pub fn update(&mut self, delta: f64) {
+    pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
             self.piece_state.position.y += 1;
+            vec![Event::ChangePiece(
+                &self.piece_state.piece,
+                self.piece_state.position,
+            )]
         } else {
             self.wait -= delta;
+            vec![]
         }
     }
 }
