@@ -105,14 +105,15 @@ impl Game {
         let removed_line_indices = (0..stage_size.height)
             .filter(|&y| self.is_filled_line(y))
             .collect::<Vec<_>>();
-        let mut events = vec![];
+        let mut removed_blocks = vec![];
         for index in (&removed_line_indices)
             .iter()
             .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
         {
-            events.push(Event::RemoveBlock(self.stage[index].unwrap(), index));
+            removed_blocks.push((self.stage[index].unwrap(), index));
             self.stage[index] = None;
         }
+        let mut events = vec![Event::RemoveBlocks(removed_blocks)];
         let mut line_boundaries = removed_line_indices;
         line_boundaries.push(self.stage_size().height);
         for (removed, range) in line_boundaries

@@ -103,10 +103,12 @@ impl GameSceneSprite {
         }
     }
 
-    fn remove_block(&mut self, block: Block, index: BlockIndex, context: &mut SceneContext) {
-        //        let texture = context.assets.block_texture(block, BlockFace::Happy);
-        //        context.child_mut(self.block_ids[index].unwrap()).unwrap().set_texture(texture);
-        context.root().remove_child(self.block_ids[index].unwrap());
+    fn remove_blocks(&mut self, blocks: &[(Block, BlockIndex)], context: &mut SceneContext) {
+        for &(block, index) in blocks {
+            //        let texture = context.assets.block_texture(block, BlockFace::Happy);
+            //        context.child_mut(self.block_ids[index].unwrap()).unwrap().set_texture(texture);
+            context.root().remove_child(self.block_ids[index].unwrap());
+        }
     }
 
     fn move_block(
@@ -136,8 +138,8 @@ impl GameSceneSprite {
             PutBlocks(blocks) => {
                 self.put_blocks(&blocks, context);
             }
-            RemoveBlock(block, index) => {
-                self.remove_block(block, index, context);
+            RemoveBlocks(blocks) => {
+                self.remove_blocks(&blocks, context);
             }
             MoveBlock {
                 block,

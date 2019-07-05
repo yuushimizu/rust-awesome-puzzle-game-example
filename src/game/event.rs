@@ -5,7 +5,7 @@ pub enum Event {
     ChangePiece(Piece),
     MovePiece(Piece, BlockIndexOffset),
     PutBlocks(Vec<(Block, BlockIndex)>),
-    RemoveBlock(Block, BlockIndex),
+    RemoveBlocks(Vec<(Block, BlockIndex)>),
     MoveBlock {
         block: Block,
         source: BlockIndex,
