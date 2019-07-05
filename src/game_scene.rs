@@ -67,7 +67,7 @@ impl GameScene {
         let initial_events = game.initial_events();
         let mut scene = Self {
             piece_id: context.empty_sprite().add_to(&mut stage),
-            stage_id: stage.add_to(context.root()),
+            stage_id: context.scene.add_child(stage),
             block_ids: array2d::Array2D::new(game.stage_size(), None),
             game,
             jobs: Default::default(),
