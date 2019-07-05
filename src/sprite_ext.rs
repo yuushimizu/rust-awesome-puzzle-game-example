@@ -1,7 +1,4 @@
 use crate::assets;
-use euclid;
-use sprite;
-use uuid;
 
 pub enum PixelSpace {}
 

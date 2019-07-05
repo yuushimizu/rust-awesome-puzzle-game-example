@@ -1,5 +1,4 @@
 use super::piece::Piece;
-use rand;
 use rand::seq::SliceRandom;
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,3 @@
-use array2d;
-
 pub type BlockNumber = u32;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]

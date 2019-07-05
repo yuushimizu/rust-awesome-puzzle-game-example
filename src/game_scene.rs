@@ -4,11 +4,8 @@ use crate::game::{
 };
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
-use array2d;
-use euclid;
 use piston_window::*;
 use std::collections;
-use uuid;
 
 const TILE_SIZE: f64 = 8.0;
 

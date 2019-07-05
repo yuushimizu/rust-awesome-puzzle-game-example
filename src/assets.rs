@@ -1,6 +1,4 @@
 use crate::game::block::Block;
-use find_folder;
-use piston_window;
 use std::collections;
 use std::path;
 use std::rc;

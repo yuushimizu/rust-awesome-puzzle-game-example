@@ -7,10 +7,9 @@ pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockIndexOffset, B
 pub use event::GameEvent;
 pub use piece::Piece;
 
-use euclid;
-
 use piece_producer::PieceProducer;
 use std::iter;
+
 const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
 const WAIT: f64 = 0.2;
