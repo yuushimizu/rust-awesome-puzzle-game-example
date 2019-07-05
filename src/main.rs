@@ -16,7 +16,7 @@ type WindowSize = euclid::TypedSize2D<f64, WindowSpace>;
 const PIXEL_SCALE: f64 = 2.0;
 
 fn main() {
-    let window_size = WindowSize::new(480.0, 480.0);
+    let window_size = WindowSize::new(320.0, 320.0);
     let mut window: PistonWindow =
         WindowSettings::new("( o_o)", (window_size.width, window_size.height))
             .resizable(false)
