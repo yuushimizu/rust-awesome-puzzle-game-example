@@ -13,7 +13,7 @@ use piece_producer::PieceProducer;
 use std::iter;
 const WIDTH: usize = 10;
 const HEIGHT: usize = 20;
-const WAIT: f64 = 0.2;
+const WAIT: f64 = 0.8;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PieceState {
@@ -104,7 +104,7 @@ impl Game {
         events
     }
 
-    fn drop_once(&mut self) -> Vec<Event> {
+    fn drop_once(&mut self) -> bool {
         if self
             .piece_state
             .piece_blocks()
@@ -117,10 +117,10 @@ impl Game {
             .next()
             .is_some()
         {
-            return self.fix_piece();
+            return false;
         }
         self.piece_state.position.y += 1;
-        vec![Event::MovePiece(self.piece_state.position)]
+        true
     }
 
     pub fn initial_events(&self) -> Vec<Event> {
@@ -133,10 +133,35 @@ impl Game {
     pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
-            self.drop_once()
+            if self.drop_once() {
+                vec![Event::MovePiece(self.piece_state.position)]
+            } else {
+                self.fix_piece()
+            }
         } else {
             self.wait -= delta;
             vec![]
         }
+    }
+
+    pub fn move_piece_left(&mut self) -> Vec<Event> {
+        vec![]
+    }
+
+    pub fn move_piece_right(&mut self) -> Vec<Event> {
+        vec![]
+    }
+
+    pub fn drop_piece_hard(&mut self) -> Vec<Event> {
+        while self.drop_once() {}
+        self.fix_piece()
+    }
+
+    pub fn rotate_piece_right(&mut self) -> Vec<Event> {
+        vec![]
+    }
+
+    pub fn rotate_piece_left(&mut self) -> Vec<Event> {
+        vec![]
     }
 }

@@ -3,6 +3,7 @@ use crate::game::{Block, BlockIndex, BlockIndexOffset, BlockSpace, Event, Game, 
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
 use array2d;
+use piston_window::*;
 use uuid;
 
 const TILE_SIZE: f64 = 8.0;
@@ -121,5 +122,29 @@ impl GameScene {
 
     pub fn update(&mut self, delta: f64, context: &mut SceneContext) {
         self.sprite.apply_events(self.game.update(delta), context);
+    }
+
+    pub fn input(&mut self, input: Input, context: &mut SceneContext) {
+        match input {
+            Input::Button(ButtonArgs {
+                state: ButtonState::Press,
+                button: Button::Keyboard(key),
+                ..
+            }) => {
+                println!("input: {:?}", key);
+                self.sprite.apply_events(
+                    match key {
+                        Key::Left => self.game.move_piece_left(),
+                        Key::Right => self.game.move_piece_right(),
+                        Key::Down => self.game.drop_piece_hard(),
+                        Key::Z => self.game.rotate_piece_left(),
+                        Key::X => self.game.rotate_piece_right(),
+                        _ => return,
+                    },
+                    context,
+                );
+            }
+            _ => {}
+        }
     }
 }
