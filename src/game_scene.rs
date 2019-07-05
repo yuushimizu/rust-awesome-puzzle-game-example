@@ -40,36 +40,44 @@ impl ToPixelSpace for BlockIndex {
 
 enum Job {
     Event(Event),
-    Run(Box<dyn FnOnce(&mut GameSceneSprite, &mut SceneContext)>),
+    Run(Box<dyn FnOnce(&mut GameScene, &mut SceneContext)>),
 }
 
-struct GameSceneSprite {
-    stage_size: BlockGridSize,
+pub struct GameScene {
+    game: Game,
     stage_id: uuid::Uuid,
     piece_id: uuid::Uuid,
     block_ids: array2d::Array2D<Option<uuid::Uuid>, BlockSpace>,
     jobs: collections::VecDeque<Job>,
 }
 
-impl GameSceneSprite {
-    fn new(stage_size: BlockGridSize, context: &mut SceneContext) -> Self {
+impl GameScene {
+    pub fn new(context: &mut SceneContext) -> Self {
+        let game = Game::new();
         let mut stage = context
             .empty_sprite()
             .moved_to(PixelPosition::new(TILE_SIZE * 10.0, 0.0));
         stage.set_scale(SCALE, SCALE);
         use euclid_ext::Points;
-        for index in euclid::TypedRect::from_size(stage_size).points() {
+        for index in euclid::TypedRect::from_size(game.stage_size()).points() {
             Sprite::from_texture(context.assets.background_tile_texture())
-                .moved_to(index.to_pixel_space(stage_size))
+                .moved_to(index.to_pixel_space(game.stage_size()))
                 .add_to(&mut stage);
         }
-        Self {
-            stage_size,
+        let initial_events = game.initial_events();
+        let mut scene = Self {
             piece_id: context.empty_sprite().add_to(&mut stage),
             stage_id: stage.add_to(context.root()),
-            block_ids: array2d::Array2D::new(stage_size, None),
+            block_ids: array2d::Array2D::new(game.stage_size(), None),
+            game,
             jobs: Default::default(),
-        }
+        };
+        scene.apply_events(initial_events, context);
+        scene
+    }
+
+    fn stage_size(&self) -> BlockGridSize {
+        self.game.stage_size()
     }
 
     fn stage_sprite<'a>(&self, context: &'a mut SceneContext) -> &'a mut Sprite {
@@ -80,20 +88,16 @@ impl GameSceneSprite {
         context.child_mut(self.piece_id).unwrap()
     }
 
-    fn block_action_is_running(&self, context: &SceneContext) -> bool {
+    fn is_ready(&self, context: &SceneContext) -> bool {
         use euclid_ext::Points;
-        for index in euclid::TypedRect::from_size(self.stage_size).points() {
+        for index in euclid::TypedRect::from_size(self.stage_size()).points() {
             if let Some(id) = self.block_ids[index] {
                 if context.scene.running_for_child(id).unwrap_or(0) > 0 {
-                    return true;
+                    return false;
                 }
             }
         }
-        false
-    }
-
-    pub fn is_ready(&self, context: &SceneContext) -> bool {
-        !self.block_action_is_running(context)
+        true
     }
 
     fn change_piece(&mut self, piece: Piece, context: &mut SceneContext) {
@@ -107,7 +111,7 @@ impl GameSceneSprite {
 
     fn move_piece(&mut self, piece: Piece, position: BlockIndexOffset, context: &mut SceneContext) {
         self.piece_sprite(context).move_to(
-            position.to_pixel_space(self.stage_size)
+            position.to_pixel_space(self.stage_size())
                 - BlockIndex::new(0, 0)
                     .to_pixel_space(piece.size())
                     .to_vector(),
@@ -127,7 +131,7 @@ impl GameSceneSprite {
                 sprite::Sprite::from_texture(
                     context.assets.block_texture(block, BlockFace::Normal),
                 )
-                .moved_to(index.to_pixel_space(self.stage_size))
+                .moved_to(index.to_pixel_space(self.stage_size()))
                 .add_to(self.stage_sprite(context)),
             );
         }
@@ -177,7 +181,7 @@ impl GameSceneSprite {
             context
                 .child_mut(id)
                 .unwrap()
-                .move_to(destination.to_pixel_space(self.stage_size));
+                .move_to(destination.to_pixel_space(self.stage_size()));
             self.block_ids[destination] = Some(id);
         }
     }
@@ -208,7 +212,7 @@ impl GameSceneSprite {
 
     fn execute_jobs(&mut self, context: &mut SceneContext) {
         loop {
-            if self.block_action_is_running(context) {
+            if !self.is_ready(context) {
                 break;
             }
             if let Some(job) = self.jobs.pop_front() {
@@ -226,39 +230,22 @@ impl GameSceneSprite {
         }
     }
 
-    fn update(&mut self, context: &mut SceneContext) {
-        self.execute_jobs(context);
-    }
-
     fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {
         self.jobs
             .extend(events.into_iter().map(|event| Job::Event(event)));
         self.execute_jobs(context);
     }
-}
-
-pub struct GameScene {
-    game: Game,
-    sprite: GameSceneSprite,
-}
-
-impl GameScene {
-    pub fn new(context: &mut SceneContext) -> Self {
-        let game = Game::new();
-        let mut sprite = GameSceneSprite::new(game.stage_size(), context);
-        sprite.apply_events(game.initial_events(), context);
-        Self { game, sprite }
-    }
 
     pub fn update(&mut self, delta: f64, context: &mut SceneContext) {
-        self.sprite.update(context);
-        if self.sprite.is_ready(context) {
-            self.sprite.apply_events(self.game.update(delta), context);
+        self.execute_jobs(context);
+        if self.is_ready(context) {
+            let events = self.game.update(delta);
+            self.apply_events(events, context);
         }
     }
 
     pub fn input(&mut self, input: Input, context: &mut SceneContext) {
-        if !self.sprite.is_ready(context) {
+        if !self.is_ready(context) {
             return;
         }
         match input {
@@ -267,18 +254,16 @@ impl GameScene {
                 button: Button::Keyboard(key),
                 ..
             }) => {
-                self.sprite.apply_events(
-                    match key {
-                        Key::Left => self.game.move_piece_left(),
-                        Key::Right => self.game.move_piece_right(),
-                        Key::Down => self.game.drop_piece_soft(),
-                        Key::Up => self.game.drop_piece_hard(),
-                        Key::Z => self.game.rotate_piece_left(),
-                        Key::X => self.game.rotate_piece_right(),
-                        _ => return,
-                    },
-                    context,
-                );
+                let events = match key {
+                    Key::Left => self.game.move_piece_left(),
+                    Key::Right => self.game.move_piece_right(),
+                    Key::Down => self.game.drop_piece_soft(),
+                    Key::Up => self.game.drop_piece_hard(),
+                    Key::Z => self.game.rotate_piece_left(),
+                    Key::X => self.game.rotate_piece_right(),
+                    _ => return,
+                };
+                self.apply_events(events, context);
             }
             _ => {}
         }
