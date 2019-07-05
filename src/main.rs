@@ -8,6 +8,12 @@ use game::{BlockPosition, Game};
 use piston_window::*;
 use uuid;
 
+type Sprite = sprite::Sprite<assets::Texture>;
+
+fn empty_sprite(assets: &Assets) -> Sprite {
+    Sprite::from_texture(assets.empty_texture())
+}
+
 enum WindowSpace {}
 
 type WindowSize = euclid::TypedSize2D<f64, WindowSpace>;
@@ -25,30 +31,42 @@ fn tile_position(index: &BlockPosition) -> euclid::TypedPoint2D<f64, PixelSpace>
 struct Scene {
     scene: sprite::Scene<assets::Texture>,
     stage_id: uuid::Uuid,
+    piece_id: uuid::Uuid,
 }
 
 impl Scene {
     fn new(assets: &mut Assets, game: &Game) -> Self {
         let mut scene = sprite::Scene::new();
-        let mut root = sprite::Sprite::from_texture(assets.empty_texture());
+        let mut root = empty_sprite(assets);
         root.set_scale(PIXEL_SCALE, PIXEL_SCALE);
-        let mut stage = sprite::Sprite::from_texture(assets.empty_texture());
+        let mut stage = empty_sprite(assets);
         stage.set_position(100.0, 50.0);
         for index in euclid::TypedRect::new(BlockPosition::zero(), game.stage_size()).points() {
             let texture = assets.background_tile_texture();
-            let mut tile = sprite::Sprite::from_texture(texture.clone());
+            let mut tile = Sprite::from_texture(texture.clone());
             let position = tile_position(&index);
             tile.set_position(position.x, position.y);
             stage.add_child(tile);
         }
         let stage_id = stage.id();
+        let piece = empty_sprite(assets);
+        let piece_id = piece.id();
+        stage.add_child(piece);
         root.add_child(stage);
         scene.add_child(root);
-        Self { scene, stage_id }
+        Self {
+            scene,
+            stage_id,
+            piece_id,
+        }
     }
 
-    fn stage_mut(&mut self) -> &mut sprite::Sprite<assets::Texture> {
+    fn stage_mut(&mut self) -> &mut Sprite {
         self.scene.child_mut(self.stage_id).unwrap()
+    }
+
+    fn piece_mut(&mut self) -> &mut Sprite {
+        self.scene.child_mut(self.piece_id).unwrap()
     }
 }
 
@@ -72,14 +90,14 @@ fn main() {
     );
     let mut game = game::Game::new();
     let mut scene = Scene::new(&mut assets, &game);
-    let stage = scene.stage_mut();
+    let piece = scene.piece_mut();
     for index in euclid::TypedRect::new(BlockPosition::zero(), game.piece().size()).points() {
         if let Some(block) = game.piece().blocks()[index] {
             let texture = assets.block_texture(block, BlockFace::Normal);
             let mut sprite = sprite::Sprite::from_texture(texture.clone());
             let position = tile_position(&index);
             sprite.set_position(position.x, position.y);
-            stage.add_child(sprite);
+            piece.add_child(sprite);
         }
     }
     while let Some(event) = window.next() {
