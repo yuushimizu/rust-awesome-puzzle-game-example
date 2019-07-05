@@ -1,5 +1,5 @@
 use crate::assets::BlockFace;
-use crate::game::{BlockIndex, BlockSpace, Event, Game, Piece, PiecePosition};
+use crate::game::{BlockIndex, Event, Game, Piece, PiecePosition, PieceSpace, StageSpace};
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
 use euclid_ext::{Map2D, Points};
@@ -7,12 +7,34 @@ use uuid;
 
 const TILE_SIZE: f64 = 8.0;
 
-fn tile_position(index: euclid::TypedPoint2D<isize, BlockSpace>) -> PixelPosition {
-    index.map(|n| euclid::Length::new(n.get() as f64 * TILE_SIZE))
+trait ToPixelSpace {
+    type Output;
+
+    fn to_pixel_space(self) -> Self::Output;
 }
 
-fn block_position(index: BlockIndex) -> PixelPosition {
-    index.map(|n| euclid::Length::new(n.get() as f64 * TILE_SIZE))
+impl ToPixelSpace for euclid::TypedPoint2D<isize, StageSpace> {
+    type Output = PixelPosition;
+
+    fn to_pixel_space(self) -> PixelPosition {
+        self.map(|n| euclid::Length::new(n.get() as f64) * TILE_SIZE)
+    }
+}
+
+impl ToPixelSpace for BlockIndex<StageSpace> {
+    type Output = PixelPosition;
+
+    fn to_pixel_space(self) -> PixelPosition {
+        self.cast::<isize>().to_pixel_space()
+    }
+}
+
+impl ToPixelSpace for BlockIndex<PieceSpace> {
+    type Output = PixelPosition;
+
+    fn to_pixel_space(self) -> PixelPosition {
+        self.map(|n| euclid::Length::new(n.get() as f64) * TILE_SIZE)
+    }
 }
 
 struct GameSceneSprite {
@@ -25,9 +47,9 @@ impl GameSceneSprite {
         let mut stage = context
             .empty_sprite()
             .moved_to(PixelPosition::new(100.0, 50.0));
-        for index in euclid::TypedRect::new(BlockIndex::zero(), game.stage_size()).points() {
+        for index in euclid::TypedRect::from_size(game.stage_size()).points() {
             Sprite::from_texture(context.assets.background_tile_texture())
-                .moved_to(block_position(index))
+                .moved_to(index.to_pixel_space())
                 .add_to(&mut stage);
         }
         Self {
@@ -42,19 +64,20 @@ impl GameSceneSprite {
 
     fn change_piece(&mut self, piece: &Piece, context: &mut SceneContext) {
         self.piece_sprite(context).remove_all_children();
-        for index in euclid::TypedRect::new(BlockIndex::zero(), piece.size()).points() {
+        for index in euclid::TypedRect::from_size(piece.size()).points() {
             if let Some(block) = piece.blocks()[index] {
                 sprite::Sprite::from_texture(
                     context.assets.block_texture(block, BlockFace::Normal),
                 )
-                .moved_to(block_position(index))
+                .moved_to(index.to_pixel_space())
                 .add_to(self.piece_sprite(context));
             }
         }
     }
 
     fn move_piece(&mut self, position: PiecePosition, context: &mut SceneContext) {
-        self.piece_sprite(context).move_to(tile_position(position));
+        self.piece_sprite(context)
+            .move_to(position.to_pixel_space());
     }
 
     fn apply_events(&mut self, events: Vec<Event>, context: &mut SceneContext) {

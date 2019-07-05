@@ -1,20 +1,23 @@
-use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber, BlockSpace};
+use super::block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockNumber};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum PieceSpace {}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Piece {
-    blocks: BlockGrid,
+    blocks: BlockGrid<PieceSpace>,
 }
 
 impl Piece {
-    pub fn new(blocks: BlockGrid) -> Self {
+    pub fn new(blocks: BlockGrid<PieceSpace>) -> Self {
         Self { blocks }
     }
 
-    pub fn size(&self) -> BlockGridSize {
+    pub fn size(&self) -> BlockGridSize<PieceSpace> {
         self.blocks.size()
     }
 
-    pub fn blocks(&self) -> &BlockGrid {
+    pub fn blocks(&self) -> &BlockGrid<PieceSpace> {
         &self.blocks
     }
 }
@@ -41,18 +44,4 @@ pub fn standards() -> Vec<Piece> {
     .enumerate()
     .map(|(number, (size, blocks))| piece(*size, number, blocks))
     .collect()
-}
-
-pub type PiecePosition = euclid::TypedPoint2D<isize, BlockSpace>;
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct PieceState {
-    pub piece: Piece,
-    pub position: PiecePosition,
-}
-
-impl PieceState {
-    pub fn new(piece: Piece, position: PiecePosition) -> Self {
-        Self { piece, position }
-    }
 }
