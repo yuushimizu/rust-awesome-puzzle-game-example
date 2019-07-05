@@ -88,10 +88,21 @@ impl Game {
         self.stage.size()
     }
 
+    fn can_put_to(&self, index: BlockIndexOffset) -> bool {
+        index.x >= 0
+            && (index.y < 0 || {
+                let index = index.cast::<usize>();
+                index.x < self.stage_size().width
+                    && index.y < self.stage_size().height
+                    && self.stage[index].is_none()
+            })
+    }
+
     fn fix_piece(&mut self) -> Vec<Event> {
         let mut events = vec![];
         for (index, block) in self.piece_state.piece_blocks() {
-            if index.y >= 0 && (index.y as usize) < self.stage_size().height {
+            debug_assert!(self.can_put_to(index));
+            if index.y >= 0 {
                 let index = index.cast::<usize>();
                 self.stage[index] = Some(block);
                 events.push(Event::SetBlock(block, index));
@@ -109,13 +120,7 @@ impl Game {
             .piece_state
             .piece_blocks()
             .map(|(index, _)| index + euclid::TypedVector2D::new(0, 1))
-            .filter(|bottom| {
-                bottom.y >= 0
-                    && (bottom.y as usize >= self.stage_size().height
-                        || self.stage[bottom.cast::<usize>()].is_some())
-            })
-            .next()
-            .is_some()
+            .any(|bottom| !self.can_put_to(bottom))
         {
             return false;
         }
@@ -133,23 +138,44 @@ impl Game {
     pub fn update(&mut self, delta: f64) -> Vec<Event> {
         if self.wait <= delta {
             self.wait = WAIT - (delta - self.wait);
-            if self.drop_once() {
-                vec![Event::MovePiece(self.piece_state.position)]
-            } else {
-                self.fix_piece()
-            }
+            self.drop_piece_soft()
         } else {
             self.wait -= delta;
             vec![]
         }
     }
 
+    fn can_move(&self, offset: isize) -> bool {
+        !self
+            .piece_state
+            .piece_blocks()
+            .map(|(index, _)| BlockIndexOffset::new(index.x + offset, index.y))
+            .any(|index| !self.can_put_to(index))
+    }
+
+    fn try_move(&mut self, offset: isize) -> Vec<Event> {
+        if self.can_move(offset) {
+            self.piece_state.position.x += offset;
+            vec![Event::MovePiece(self.piece_state.position)]
+        } else {
+            vec![]
+        }
+    }
+
     pub fn move_piece_left(&mut self) -> Vec<Event> {
-        vec![]
+        self.try_move(-1)
     }
 
     pub fn move_piece_right(&mut self) -> Vec<Event> {
-        vec![]
+        self.try_move(1)
+    }
+
+    pub fn drop_piece_soft(&mut self) -> Vec<Event> {
+        if self.drop_once() {
+            vec![Event::MovePiece(self.piece_state.position)]
+        } else {
+            self.fix_piece()
+        }
     }
 
     pub fn drop_piece_hard(&mut self) -> Vec<Event> {

@@ -131,12 +131,12 @@ impl GameScene {
                 button: Button::Keyboard(key),
                 ..
             }) => {
-                println!("input: {:?}", key);
                 self.sprite.apply_events(
                     match key {
                         Key::Left => self.game.move_piece_left(),
                         Key::Right => self.game.move_piece_right(),
-                        Key::Down => self.game.drop_piece_hard(),
+                        Key::Down => self.game.drop_piece_soft(),
+                        Key::Up => self.game.drop_piece_hard(),
                         Key::Z => self.game.rotate_piece_left(),
                         Key::X => self.game.rotate_piece_right(),
                         _ => return,
