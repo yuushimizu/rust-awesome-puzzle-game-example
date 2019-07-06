@@ -77,6 +77,10 @@ impl Assets {
         self.texture(&self.block_texture_name(block, face))
     }
 
+    pub fn ghost_block_texture(&mut self) -> rc::Rc<Texture> {
+        self.texture("block-ghost.png")
+    }
+
     pub fn background_tile_texture(&mut self) -> rc::Rc<Texture> {
         self.texture("bg-tile.png")
     }

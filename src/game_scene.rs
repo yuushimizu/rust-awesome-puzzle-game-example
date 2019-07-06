@@ -58,6 +58,7 @@ struct Sprites {
     pub scene: sprite::Scene<Texture>,
     stage_sprite_id: uuid::Uuid,
     piece_sprite_id: uuid::Uuid,
+    piece_guide_sprite_id: uuid::Uuid,
     next_pieces_sprite_id: uuid::Uuid,
     block_sprite_ids: array2d::Array2D<Option<uuid::Uuid>, BlockSpace>,
 }
@@ -71,6 +72,7 @@ impl Sprites {
             .empty_sprite()
             .moved_to(PixelPosition::new(TILE_SIZE * 4.0, 0.0));
         put_background_tile_sprites(&mut stage_sprite, stage_size, context);
+        let piece_guide_sprite_id = stage_sprite.add_child(context.empty_sprite());
         let piece_sprite_id = stage_sprite.add_child(context.empty_sprite());
         let stage_sprite_id = root_sprite.add_child(stage_sprite);
         let mut next_pieces_sprite = context.empty_sprite().moved_to(PixelPosition::new(
@@ -88,6 +90,7 @@ impl Sprites {
         Self {
             scene,
             piece_sprite_id,
+            piece_guide_sprite_id,
             stage_sprite_id,
             next_pieces_sprite_id,
             block_sprite_ids: array2d::Array2D::new(stage_size, None),
@@ -104,6 +107,10 @@ impl Sprites {
 
     pub fn piece_sprite(&mut self) -> &mut Sprite {
         self.sprite(self.piece_sprite_id).unwrap()
+    }
+
+    pub fn piece_guide_sprite(&mut self) -> &mut Sprite {
+        self.sprite(self.piece_guide_sprite_id).unwrap()
     }
 
     pub fn next_pieces_sprite(&mut self) -> &mut Sprite {
@@ -180,30 +187,56 @@ impl<'a> GameScene<'a> {
         !self.sprites.is_running()
     }
 
-    fn put_piece_sprites(context: &mut SceneContext, sprite: &mut Sprite, piece: &Piece) {
+    fn put_piece_sprites(
+        context: &mut SceneContext,
+        sprite: &mut Sprite,
+        piece: &Piece,
+        is_ghost: bool,
+    ) {
         for (index, block) in piece.blocks() {
-            sprite::Sprite::from_texture(context.assets.block_texture(block, BlockFace::Sleep))
-                .moved_to(index.to_pixel_space(piece.size()))
-                .add_to(sprite);
+            sprite::Sprite::from_texture(if is_ghost {
+                context.assets.ghost_block_texture()
+            } else {
+                context.assets.block_texture(block, BlockFace::Sleep)
+            })
+            .moved_to(index.to_pixel_space(piece.size()))
+            .add_to(sprite);
         }
     }
 
-    fn change_piece(&mut self, piece: Piece) {
-        self.sprites.piece_sprite().remove_all_children();
-        let piece_sprite = self.sprites.piece_sprite();
-        Self::put_piece_sprites(self.context, piece_sprite, &piece);
+    fn piece_pixel_position(&self, piece: &Piece, position: BlockIndexOffset) -> PixelPosition {
+        let offset = -BlockIndex::new(0, 0)
+            .to_pixel_space(piece.size())
+            .to_vector();
+        position.to_pixel_space(self.stage_size()) + offset
     }
 
-    fn move_piece(&mut self, piece: Piece, position: BlockIndexOffset) {
-        let position = position.to_pixel_space(self.stage_size())
-            - BlockIndex::new(0, 0)
-                .to_pixel_space(piece.size())
-                .to_vector();
+    fn change_piece(&mut self, piece: Piece, guide_position: BlockIndexOffset) {
+        let piece_sprite = self.sprites.piece_sprite();
+        piece_sprite.remove_all_children();
+        Self::put_piece_sprites(self.context, piece_sprite, &piece, false);
+        let guide_position = self.piece_pixel_position(&piece, guide_position);
+        let piece_guide_sprite = self.sprites.piece_guide_sprite();
+        piece_guide_sprite.remove_all_children();
+        Self::put_piece_sprites(self.context, piece_guide_sprite, &piece, true);
+        piece_guide_sprite.move_to(guide_position);
+    }
+
+    fn move_piece(
+        &mut self,
+        piece: Piece,
+        position: BlockIndexOffset,
+        guide_position: BlockIndexOffset,
+    ) {
+        let position = self.piece_pixel_position(&piece, position);
         self.sprites.piece_sprite().move_to(position);
+        let guide_position = self.piece_pixel_position(&piece, guide_position);
+        self.sprites.piece_guide_sprite().move_to(guide_position);
     }
 
     fn remove_piece(&mut self) {
         self.sprites.piece_sprite().remove_all_children();
+        self.sprites.piece_guide_sprite().remove_all_children();
     }
 
     fn update_next_pieces(&mut self, pieces: Vec<Piece>) {
@@ -215,7 +248,7 @@ impl<'a> GameScene<'a> {
                 .context
                 .empty_sprite()
                 .moved_to(euclid::TypedPoint2D::new(0.0, offset * index as f64));
-            Self::put_piece_sprites(self.context, &mut sprite, piece);
+            Self::put_piece_sprites(self.context, &mut sprite, piece, false);
             parent.add_child(sprite);
         }
     }
@@ -274,11 +307,18 @@ impl<'a> GameScene<'a> {
     fn apply_game_event(&mut self, event: GameEvent) {
         use GameEvent::*;
         match event {
-            ChangePiece(piece) => {
-                self.change_piece(piece);
+            ChangePiece {
+                piece,
+                guide_position,
+            } => {
+                self.change_piece(piece, guide_position);
             }
-            MovePiece(piece, position) => {
-                self.move_piece(piece, position);
+            MovePiece {
+                piece,
+                position,
+                guide_position,
+            } => {
+                self.move_piece(piece, position, guide_position);
             }
             RemovePiece => {
                 self.remove_piece();

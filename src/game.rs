@@ -71,18 +71,6 @@ impl Game {
         self.stage.size()
     }
 
-    fn change_piece_event(&self) -> GameEvent {
-        GameEvent::ChangePiece(self.piece_state.piece.clone())
-    }
-
-    fn move_piece_event(&self) -> GameEvent {
-        GameEvent::MovePiece(self.piece_state.piece.clone(), self.piece_state.position)
-    }
-
-    fn update_next_pieces_event(&self) -> GameEvent {
-        GameEvent::UpdateNextPieces(self.next_pieces.clone().into())
-    }
-
     fn can_put_to(&self, index: BlockIndexOffset) -> bool {
         index.x >= 0
             && (index.x as usize) < self.stage_size().width
@@ -99,6 +87,37 @@ impl Game {
             .blocks()
             .map(move |(index, _)| transform(index))
             .all(|index| self.can_put_to(index))
+    }
+
+    fn can_move(&self, offset: euclid::TypedVector2D<isize, BlockSpace>) -> bool {
+        self.can_transform_piece(|index| index + offset)
+    }
+
+    fn search_hard_drop_position(&self) -> BlockIndexOffset {
+        let mut offset = euclid::TypedVector2D::new(0, 0);
+        while self.can_move(offset + euclid::TypedVector2D::new(0, -1)) {
+            offset.y -= 1;
+        }
+        self.piece_state.position + offset
+    }
+
+    fn change_piece_event(&self) -> GameEvent {
+        GameEvent::ChangePiece {
+            piece: self.piece_state.piece.clone(),
+            guide_position: self.search_hard_drop_position(),
+        }
+    }
+
+    fn move_piece_event(&self) -> GameEvent {
+        GameEvent::MovePiece {
+            piece: self.piece_state.piece.clone(),
+            position: self.piece_state.position,
+            guide_position: self.search_hard_drop_position(),
+        }
+    }
+
+    fn update_next_pieces_event(&self) -> GameEvent {
+        GameEvent::UpdateNextPieces(self.next_pieces.clone().into())
     }
 
     fn is_filled_line(&self, y: usize) -> bool {
@@ -178,7 +197,7 @@ impl Game {
     }
 
     fn drop_once(&mut self) -> bool {
-        if self.can_transform_piece(|index| index - euclid::TypedVector2D::new(0, 1)) {
+        if self.can_move(euclid::TypedVector2D::new(0, -1)) {
             self.piece_state.position.y -= 1;
             true
         } else {
@@ -204,12 +223,8 @@ impl Game {
         }
     }
 
-    fn can_move(&self, offset: isize) -> bool {
-        self.can_transform_piece(|index| BlockIndexOffset::new(index.x + offset, index.y))
-    }
-
     fn try_move(&mut self, offset: isize) -> Vec<GameEvent> {
-        if self.can_move(offset) {
+        if self.can_move(euclid::TypedVector2D::new(offset, 0)) {
             self.piece_state.position.x += offset;
             vec![self.move_piece_event()]
         } else {
@@ -242,7 +257,7 @@ impl Game {
         let new_state = PieceState::new(new_piece, self.piece_state.position);
         if new_state.blocks().all(|(index, _)| self.can_put_to(index)) {
             self.piece_state = new_state;
-            vec![GameEvent::ChangePiece(self.piece_state.piece.clone())]
+            vec![self.change_piece_event()]
         } else {
             vec![]
         }
