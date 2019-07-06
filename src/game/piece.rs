@@ -32,11 +32,11 @@ impl Piece {
     }
 
     pub fn rotate_left(&self) -> Self {
-        self.transform(|index| BlockIndex::new(index.y, self.size().height - 1 - index.x))
+        self.transform(|index| BlockIndex::new(self.size().width - 1 - index.y, index.x))
     }
 
     pub fn rotate_right(&self) -> Self {
-        self.transform(|index| BlockIndex::new(self.size().width - 1 - index.y, index.x))
+        self.transform(|index| BlockIndex::new(index.y, self.size().height - 1 - index.x))
     }
 }
 
