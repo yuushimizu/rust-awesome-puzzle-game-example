@@ -166,7 +166,7 @@ pub struct GameScene<'a> {
 
 impl<'a> GameScene<'a> {
     pub fn new(context: &'a mut SceneContext) -> Self {
-        let game = Game::new();
+        let mut game = Game::new();
         let sprites = Sprites::new(game.stage_size(), context);
         let initial_events = game.initial_events();
         let mut result = Self {

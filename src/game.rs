@@ -1,14 +1,13 @@
 pub mod block;
 pub mod event;
 pub mod piece;
-mod piece_producer;
+mod piece_generator;
 
 pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace};
 pub use event::GameEvent;
 pub use piece::Piece;
 
-use piece_producer::PieceProducer;
-use std::collections;
+use piece_generator::PieceGenerator;
 use std::iter;
 
 const WIDTH: usize = 10;
@@ -45,24 +44,18 @@ impl PieceState {
 pub struct Game {
     stage: BlockGrid,
     piece_state: PieceState,
-    piece_producer: PieceProducer,
-    next_pieces: collections::VecDeque<Piece>,
+    piece_generator: PieceGenerator,
     wait: f64,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let mut piece_producer = PieceProducer::new(piece::standards());
+        let mut piece_generator = PieceGenerator::new(piece::standards());
         let stage_size = BlockGridSize::new(WIDTH, HEIGHT);
         Self {
             stage: BlockGrid::new(stage_size, None),
-            piece_state: PieceState::with_initial_position(piece_producer.next(), stage_size),
-            next_pieces: collections::VecDeque::from(vec![
-                piece_producer.next(),
-                piece_producer.next(),
-                piece_producer.next(),
-            ]),
-            piece_producer,
+            piece_state: PieceState::with_initial_position(piece_generator.next(), stage_size),
+            piece_generator,
             wait: WAIT,
         }
     }
@@ -116,8 +109,8 @@ impl Game {
         }
     }
 
-    fn update_next_pieces_event(&self) -> GameEvent {
-        GameEvent::UpdateNextPieces(self.next_pieces.clone().into())
+    fn update_next_pieces_event(&mut self) -> GameEvent {
+        GameEvent::UpdateNextPieces(self.piece_generator.peek(3))
     }
 
     fn is_filled_line(&self, y: usize) -> bool {
@@ -185,18 +178,15 @@ impl Game {
         }
         events.push(GameEvent::PutBlocks(blocks));
         events.append(&mut self.remove_filled_lines());
-        self.piece_state = PieceState::with_initial_position(
-            self.next_pieces.pop_front().unwrap(),
-            self.stage_size(),
-        );
-        self.next_pieces.push_back(self.piece_producer.next());
+        self.piece_state =
+            PieceState::with_initial_position(self.piece_generator.next(), self.stage_size());
         events.push(self.change_piece_event());
         events.push(self.move_piece_event());
         events.push(self.update_next_pieces_event());
         events
     }
 
-    pub fn initial_events(&self) -> Vec<GameEvent> {
+    pub fn initial_events(&mut self) -> Vec<GameEvent> {
         vec![
             self.change_piece_event(),
             self.move_piece_event(),
