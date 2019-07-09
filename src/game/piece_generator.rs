@@ -10,11 +10,10 @@ pub struct PieceGenerator {
 }
 
 impl PieceGenerator {
-    pub fn new(mut source: Vec<Piece>) -> Self {
-        source.shuffle(&mut rand::thread_rng());
+    pub fn new(source: Vec<Piece>) -> Self {
         Self {
+            current_index: source.len(),
             source,
-            current_index: 0,
             stocks: Default::default(),
         }
     }
