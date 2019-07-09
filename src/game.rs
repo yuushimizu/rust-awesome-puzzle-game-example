@@ -196,15 +196,6 @@ impl Game {
         events
     }
 
-    fn drop_once(&mut self) -> bool {
-        if self.can_move(euclid::TypedVector2D::new(0, -1)) {
-            self.piece_state.position.y -= 1;
-            true
-        } else {
-            false
-        }
-    }
-
     pub fn initial_events(&self) -> Vec<GameEvent> {
         vec![
             self.change_piece_event(),
@@ -241,7 +232,8 @@ impl Game {
     }
 
     pub fn drop_piece_soft(&mut self) -> Vec<GameEvent> {
-        if self.drop_once() {
+        if self.can_move(euclid::TypedVector2D::new(0, -1)) {
+            self.piece_state.position.y -= 1;
             vec![self.move_piece_event()]
         } else {
             self.fix_piece()
@@ -249,7 +241,7 @@ impl Game {
     }
 
     pub fn drop_piece_hard(&mut self) -> Vec<GameEvent> {
-        while self.drop_once() {}
+        self.piece_state.position = self.search_hard_drop_position();
         self.fix_piece()
     }
 
