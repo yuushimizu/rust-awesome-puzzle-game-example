@@ -1,6 +1,7 @@
 use crate::assets::{BlockFace, Texture};
 use crate::game::{
-    Block, BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace, Game, GameEvent, Piece,
+    BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace, Game, GameEvent, MoveResult,
+    Piece, PutResult, RemoveResult,
 };
 use crate::scene_context::SceneContext;
 use crate::sprite_ext::{AddTo, MoveTo, MovedTo, PixelPosition, RemoveAllChildren, Sprite};
@@ -253,22 +254,27 @@ impl<'a> GameScene<'a> {
         }
     }
 
-    fn put_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>) {
-        for (block, index) in blocks {
+    fn put_blocks(&mut self, results: Vec<PutResult>) {
+        for result in &results {
             let id = sprite::Sprite::from_texture(
-                self.context.assets.block_texture(block, BlockFace::Normal),
+                self.context
+                    .assets
+                    .block_texture(result.block, BlockFace::Normal),
             )
-            .moved_to(index.to_pixel_space(self.stage_size()))
+            .moved_to(result.index.to_pixel_space(self.stage_size()))
             .add_to(self.sprites.stage_sprite());
-            self.sprites.set_block_sprite_id(index, id);
+            self.sprites.set_block_sprite_id(result.index, id);
         }
     }
 
-    fn add_removing_action(&mut self, block: Block, index: BlockIndex) {
+    fn add_removing_action(&mut self, remove_result: &RemoveResult) {
         use ai_behavior::{Action, Sequence};
         use sprite::{Ease, EaseFunction, ScaleTo};
-        let id = self.sprites.block_sprite_id(index).unwrap();
-        let texture = self.context.assets.block_texture(block, BlockFace::Happy);
+        let id = self.sprites.block_sprite_id(remove_result.index).unwrap();
+        let texture = self
+            .context
+            .assets
+            .block_texture(remove_result.block, BlockFace::Happy);
         self.sprites.sprite(id).unwrap().set_texture(texture);
         self.sprites.scene.run(
             id,
@@ -285,22 +291,26 @@ impl<'a> GameScene<'a> {
         );
     }
 
-    fn remove_blocks(&mut self, blocks: Vec<(Block, BlockIndex)>) {
-        for &(block, index) in &blocks {
-            self.add_removing_action(block, index);
+    fn remove_blocks(&mut self, results: Vec<RemoveResult>) {
+        for result in &results {
+            self.add_removing_action(&result);
         }
         self.jobs.push_front(Job::Run(Box::new(move |this| {
-            for (_block, index) in blocks {
-                this.sprites.remove_block_sprite(index);
+            for result in results {
+                this.sprites.remove_block_sprite(result.index);
             }
         })));
     }
 
-    fn move_blocks(&mut self, moves: Vec<(Block, BlockIndex, BlockIndex)>) {
-        for (_block, source, destination) in moves {
-            let position = destination.to_pixel_space(self.stage_size());
-            self.sprites.block_sprite(source).unwrap().move_to(position);
-            self.sprites.move_block_sprite_id(source, destination);
+    fn move_blocks(&mut self, results: Vec<MoveResult>) {
+        for result in &results {
+            let position = result.destination.to_pixel_space(self.stage_size());
+            self.sprites
+                .block_sprite(result.source)
+                .unwrap()
+                .move_to(position);
+            self.sprites
+                .move_block_sprite_id(result.source, result.destination);
         }
     }
 
@@ -326,14 +336,14 @@ impl<'a> GameScene<'a> {
             UpdateNextPieces(pieces) => {
                 self.update_next_pieces(pieces);
             }
-            PutBlocks(blocks) => {
-                self.put_blocks(blocks);
+            PutBlocks(results) => {
+                self.put_blocks(results);
             }
-            RemoveBlocks(blocks) => {
-                self.remove_blocks(blocks);
+            RemoveBlocks(results) => {
+                self.remove_blocks(results);
             }
-            MoveBlocks(moves) => {
-                self.move_blocks(moves);
+            MoveBlocks(results) => {
+                self.move_blocks(results);
             }
         }
     }

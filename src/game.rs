@@ -2,10 +2,12 @@ pub mod block;
 pub mod event;
 pub mod piece;
 mod piece_generator;
+pub mod stage;
 
 pub use block::{Block, BlockGrid, BlockGridSize, BlockIndex, BlockIndexOffset, BlockSpace};
-pub use event::GameEvent;
+pub use event::{GameEvent, MoveResult, PutResult, RemoveResult};
 pub use piece::Piece;
+pub use stage::Stage;
 
 use piece_generator::PieceGenerator;
 use std::iter;
@@ -42,7 +44,7 @@ impl PieceState {
 
 #[derive(Debug, Clone)]
 pub struct Game {
-    stage: BlockGrid,
+    stage: Stage,
     piece_state: PieceState,
     piece_generator: PieceGenerator,
     wait: f64,
@@ -53,7 +55,7 @@ impl Game {
         let mut piece_generator = PieceGenerator::new(piece::standards());
         let stage_size = BlockGridSize::new(WIDTH, HEIGHT);
         Self {
-            stage: BlockGrid::new(stage_size, None),
+            stage: Stage::new(stage_size),
             piece_state: PieceState::with_initial_position(piece_generator.next(), stage_size),
             piece_generator,
             wait: WAIT,
@@ -64,14 +66,6 @@ impl Game {
         self.stage.size()
     }
 
-    fn can_put_to(&self, index: BlockIndexOffset) -> bool {
-        index.x >= 0
-            && (index.x as usize) < self.stage_size().width
-            && index.y >= 0
-            && (index.y as usize >= self.stage_size().height
-                || self.stage[index.cast::<usize>()].is_none())
-    }
-
     fn can_transform_piece(
         &self,
         mut transform: impl FnMut(BlockIndexOffset) -> BlockIndexOffset,
@@ -79,16 +73,16 @@ impl Game {
         self.piece_state
             .blocks()
             .map(move |(index, _)| transform(index))
-            .all(|index| self.can_put_to(index))
+            .all(|index| self.stage.can_put_to(index))
     }
 
-    fn can_move(&self, offset: euclid::TypedVector2D<isize, BlockSpace>) -> bool {
+    fn can_move_piece(&self, offset: euclid::TypedVector2D<isize, BlockSpace>) -> bool {
         self.can_transform_piece(|index| index + offset)
     }
 
     fn search_hard_drop_position(&self) -> BlockIndexOffset {
         let mut offset = euclid::TypedVector2D::new(0, 0);
-        while self.can_move(offset + euclid::TypedVector2D::new(0, -1)) {
+        while self.can_move_piece(offset + euclid::TypedVector2D::new(0, -1)) {
             offset.y -= 1;
         }
         self.piece_state.position + offset
@@ -109,89 +103,47 @@ impl Game {
         }
     }
 
-    fn update_next_pieces_event(&mut self) -> GameEvent {
-        GameEvent::UpdateNextPieces(self.piece_generator.peek(3))
+    fn piece_generation_events(&mut self) -> Vec<GameEvent> {
+        vec![
+            self.change_piece_event(),
+            self.move_piece_event(),
+            GameEvent::UpdateNextPieces(self.piece_generator.peek(3)),
+        ]
     }
 
-    fn is_filled_line(&self, y: usize) -> bool {
-        self.stage
-            .line(y)
-            .unwrap()
-            .iter()
-            .all(|block| block.is_some())
-    }
-
-    fn filled_line_indices(&self) -> Vec<usize> {
-        (0..self.stage_size().height)
-            .filter(|&y| self.is_filled_line(y))
-            .collect::<Vec<_>>()
-    }
-
-    fn remove_lines(&mut self, indices: &[usize]) -> GameEvent {
-        let stage_size = self.stage_size();
-        let mut removed_blocks = vec![];
-        for index in indices
-            .iter()
-            .flat_map(|&y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
-        {
-            removed_blocks.push((self.stage[index].unwrap(), index));
-            self.stage[index] = None;
+    fn put_piece_blocks(&mut self) -> GameEvent {
+        let mut put_results = vec![];
+        for (index, block) in self.piece_state.blocks() {
+            if self.stage.can_put_to(index) {
+                put_results.push(self.stage.put_block(index.cast::<usize>(), block));
+            }
         }
-        GameEvent::RemoveBlocks(removed_blocks)
+        GameEvent::PutBlocks(put_results)
     }
 
     fn remove_filled_lines(&mut self) -> Vec<GameEvent> {
-        let stage_size = self.stage_size();
-        let line_indices = self.filled_line_indices();
-        let mut events = vec![self.remove_lines(&line_indices)];
-        let mut moves = vec![];
-        let mut line_boundaries = line_indices;
-        line_boundaries.push(self.stage_size().height);
-        for (removed, range) in line_boundaries
-            .windows(2)
-            .map(|area| (area[0] + 1..area[1]))
-            .enumerate()
-        {
-            for index in
-                range.flat_map(|y| (0..stage_size.width).map(move |x| BlockIndex::new(x, y)))
-            {
-                if let Some(block) = self.stage[index] {
-                    let destination = BlockIndex::new(index.x, index.y - removed - 1);
-                    moves.push((block, index, destination));
-                    self.stage[destination] = std::mem::replace(&mut self.stage[index], None);
-                }
-            }
+        if let Some((remove_results, move_results)) = self.stage.remove_filled_lines() {
+            vec![
+                GameEvent::RemoveBlocks(remove_results),
+                GameEvent::MoveBlocks(move_results),
+            ]
+        } else {
+            vec![]
         }
-        events.push(GameEvent::MoveBlocks(moves));
-        events
     }
 
     fn fix_piece(&mut self) -> Vec<GameEvent> {
         let mut events = vec![GameEvent::RemovePiece];
-        let mut blocks = vec![];
-        for (index, block) in self.piece_state.blocks() {
-            if (index.y as usize) < self.stage_size().height {
-                let index = index.cast::<usize>();
-                self.stage[index] = Some(block);
-                blocks.push((block, index));
-            }
-        }
-        events.push(GameEvent::PutBlocks(blocks));
+        events.push(self.put_piece_blocks());
         events.append(&mut self.remove_filled_lines());
         self.piece_state =
             PieceState::with_initial_position(self.piece_generator.next(), self.stage_size());
-        events.push(self.change_piece_event());
-        events.push(self.move_piece_event());
-        events.push(self.update_next_pieces_event());
+        events.append(&mut self.piece_generation_events());
         events
     }
 
     pub fn initial_events(&mut self) -> Vec<GameEvent> {
-        vec![
-            self.change_piece_event(),
-            self.move_piece_event(),
-            self.update_next_pieces_event(),
-        ]
+        self.piece_generation_events()
     }
 
     pub fn update(&mut self, delta: f64) -> Vec<GameEvent> {
@@ -204,8 +156,8 @@ impl Game {
         }
     }
 
-    fn try_move(&mut self, offset: isize) -> Vec<GameEvent> {
-        if self.can_move(euclid::TypedVector2D::new(offset, 0)) {
+    fn try_move_piece(&mut self, offset: isize) -> Vec<GameEvent> {
+        if self.can_move_piece(euclid::TypedVector2D::new(offset, 0)) {
             self.piece_state.position.x += offset;
             vec![self.move_piece_event()]
         } else {
@@ -214,15 +166,15 @@ impl Game {
     }
 
     pub fn move_piece_left(&mut self) -> Vec<GameEvent> {
-        self.try_move(-1)
+        self.try_move_piece(-1)
     }
 
     pub fn move_piece_right(&mut self) -> Vec<GameEvent> {
-        self.try_move(1)
+        self.try_move_piece(1)
     }
 
     pub fn drop_piece_soft(&mut self) -> Vec<GameEvent> {
-        if self.can_move(euclid::TypedVector2D::new(0, -1)) {
+        if self.can_move_piece(euclid::TypedVector2D::new(0, -1)) {
             self.piece_state.position.y -= 1;
             vec![self.move_piece_event()]
         } else {
@@ -237,7 +189,10 @@ impl Game {
 
     fn try_change_piece(&mut self, new_piece: Piece) -> Vec<GameEvent> {
         let new_state = PieceState::new(new_piece, self.piece_state.position);
-        if new_state.blocks().all(|(index, _)| self.can_put_to(index)) {
+        if new_state
+            .blocks()
+            .all(|(index, _)| self.stage.can_put_to(index))
+        {
             self.piece_state = new_state;
             vec![self.change_piece_event()]
         } else {
